@@ -7,8 +7,8 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Removed service worker manifest link and registration script to prevent URL protocol errors. -->
-    <!-- <link rel="manifest" href="manifest.json" /> -->
+    <!-- Re-enabled manifest link to resolve PWA builder errors -->
+    <link rel="manifest" href="manifest.json" />
 
     <!-- Ensure these CDN links are correct and accessible -->
     <script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
@@ -1559,7 +1559,7 @@
             allAnimals.forEach(({name, emoji}) => {
                 const opt = document.createElement("option");
                 opt.value = name;
-                opt.textContent = `${emoji || '�'} ${name}`;
+                opt.textContent = `${emoji || '🆕'} ${name}`;
                 el.animalDropdown.appendChild(opt);
             });
         },
