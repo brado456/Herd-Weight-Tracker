@@ -1,19 +1,20 @@
 {
   "name": "Herd Weight Tracker",
-  "short_name": "HerdTrack",
-  "start_url": "./index.html",
+  "short_name": "HerdTracker",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#121212",
-  "theme_color": "#2a9df4",
-  "description": "Track animal growth. Make better farm decisions. All offline.\n\nHerd Weight Tracker is your go-to tool for managing animal weights and progress — no internet required. Whether you’re a farmer, breeder, or just passionate about livestock, this app makes it easy to record, track, and analyze individual animal growth over time.",
-  "id": "HWT",
-  "scope": "./",
+  "background_color": "#f5f9ff",
+  "theme_color": "#0366d6",
   "icons": [
     {
-      "src": "icons/icon-384x384.png",
-      "sizes": "384x384",
+      "src": "icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512x512.png",
+      "sizes": "512x512",
       "type": "image/png"
     }
-  ],
-  "launch_handler": {}
+  ]
 }
