@@ -1,0 +1,2466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Herd Weight Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="manifest" href="manifest.json" />
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js');
+    });
+  }
+</script>
+
+    <!-- Ensure these CDN links are correct and accessible -->
+    <script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link href="https://fonts.googleapis.com/css?family=Nunito:700,400&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+          /* Light mode colors */
+          --bg-color: #f5f9ff;
+          --text-color: #222;
+          --primary-color: #0366d6;
+          --primary-color-rgb: 3, 102, 214; /* Added for dynamic shadow colors */
+          --secondary-color: #555;
+          --border-color: #ddd;
+          --button-bg: #0366d6;
+          --button-text: #fff;
+          --button-hover-bg: #024fa6;
+          --highlight-bg: #eef4ff;
+          --table-hover-bg: #e0ebff;
+          --modal-overlay-bg: rgba(0,0,0,0.6);
+          --modal-bg: #fff;
+          --error-color: #d9534f;
+          --error-color-rgb: 217, 83, 79; /* Added for dynamic shadow colors */
+          --success-color: #5cb85c;
+          --shadow-light: rgba(0, 0, 0, 0.1);
+          --shadow-medium: rgba(0, 0, 0, 0.15);
+          --gain-color: #28a745; /* Green for gain */
+          --loss-color: #dc3545; /* Red for loss */
+          --stable-color: #6c757d; /* Gray for stable */
+        }
+
+        body.dark-mode {
+          /* Dark mode overrides */
+          --bg-color: #121a23;
+          --text-color: #a0c5c1;
+          --primary-color: #4cd6a8;
+          --primary-color-rgb: 76, 214, 168; /* Added for dynamic shadow colors */
+          --secondary-color: #7a9ea7;
+          --border-color: #334d4a;
+          --button-bg: #176652;
+          --button-text: #d0f2e9;
+          --button-hover-bg: #0e4535;
+          --highlight-bg: #1f2d2a;
+          --table-hover-bg: #2a504d;
+          --modal-overlay-bg: rgba(0,0,0,0.75);
+          --modal-bg: #1f2d2a;
+          --error-color: #e67c79;
+          --error-color-rgb: 230, 124, 121; /* Added for dynamic shadow colors */
+          --success-color: #62c462;
+          --shadow-light: rgba(0, 0, 0, 0.2);
+          --shadow-medium: rgba(0, 0, 0, 0.3);
+          --gain-color: #28a745; /* Green for gain */
+          --loss-color: #e67c79; /* Red for loss */
+          --stable-color: #7a9ea7; /* Gray for stable */
+        }
+
+        body {
+          background-color: var(--bg-color);
+          color: var(--text-color);
+          font-family: 'Nunito', sans-serif;
+          margin: 0;
+          padding: 0;
+          transition: background-color 0.3s, color 0.3s;
+          -webkit-font-smoothing: antialiased; /* Smoother fonts for webkit browsers */
+          -moz-osx-font-smoothing: grayscale; /* Smoother fonts for Firefox on macOS */
+          text-rendering: optimizeLegibility; /* Optimize font rendering */
+        }
+
+        .container {
+          max-width: 640px;
+          margin: 20px auto 40px auto;
+          padding: 12px;
+        }
+
+        main > section {
+          margin-top: 24px;
+          transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; /* Smooth transition for section toggles */
+        }
+
+        h1, h2, h3 {
+          font-weight: 700;
+          margin-top: 0;
+        }
+        h1 { font-size: 1.8rem; margin-bottom: 10px; }
+        h2 { font-size: 1.4rem; margin-bottom: 12px; }
+        h3 { font-size: 1.2rem; margin-bottom: 10px; }
+
+        label {
+          display: block;
+          margin: 10px 0 4px 0;
+          font-weight: 700;
+        }
+
+        select, input[type=text], input[type=number], input[type=date], textarea {
+          width: 100%;
+          padding: 10px 12px;
+          font-size: 1rem;
+          font-family: 'Nunito', sans-serif;
+          border: 1px solid var(--border-color);
+          background-color: var(--bg-color);
+          color: var(--text-color);
+          border-radius: 6px;
+          box-sizing: border-box;
+          transition: border-color 0.3s, background-color 0.3s, box-shadow 0.2s ease-in-out;
+        }
+        select:focus, input[type=text]:focus, input[type=number]:focus, input[type=date]:focus, textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.3); /* Softer focus ring */
+            border-color: var(--primary-color);
+        }
+
+        /* Validation feedback styles */
+        input.is-invalid, textarea.is-invalid {
+            border-color: var(--error-color) !important;
+            box-shadow: 0 0 0 2px rgba(var(--error-color-rgb), 0.2); /* Using RGB for shadow consistent across themes */
+        }
+        .validation-message {
+            color: var(--error-color);
+            font-size: 0.85rem;
+            margin-top: 4px;
+            margin-bottom: 8px;
+            display: block;
+            min-height: 1.2em; /* Reserve space */
+        }
+
+
+        .flex-group {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .flex-group button {
+          padding: 8px;
+          font-size: 1.2em;
+          line-height: 1;
+        }
+
+        .checkbox-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 10px;
+          user-select: none;
+        }
+        .checkbox-container label { margin: 0; }
+
+        .button-row {
+          margin-top: 12px;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+          gap: 10px;
+        }
+
+        .data-buttons {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 10px;
+          margin-top: 12px;
+        }
+
+        button {
+          cursor: pointer;
+          background-color: var(--button-bg);
+          border: 1px solid transparent;
+          color: var(--button-text);
+          padding: 10px 14px;
+          border-radius: 6px;
+          font-weight: 700;
+          font-family: 'Nunito', sans-serif;
+          font-size: 0.95rem;
+          transition: background-color 0.3s, transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+          box-shadow: 0 2px 4px var(--shadow-light); /* subtle shadow */
+          outline: none; /* Remove default focus outline */
+        }
+        button:hover {
+            background-color: var(--button-hover-bg);
+            transform: translateY(-1px); /* Slight lift on hover */
+            box-shadow: 0 4px 8px var(--shadow-medium); /* Deeper shadow on hover */
+        }
+        button:active {
+            transform: translateY(0); /* Press down effect */
+            box-shadow: 0 1px 2px var(--shadow-light);
+        }
+        button:focus-visible { /* Add custom focus style */
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+            border-radius: 3px;
+        }
+        button.icon-button { padding: 8px 12px; }
+
+        .danger-btn { background-color: var(--error-color); }
+        .danger-btn:hover { background-color: color-mix(in srgb, var(--error-color) 80%, black); }
+
+        #statsBar {
+          margin-bottom: 10px;
+          font-weight: 700;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+
+        #suggestions {
+            color: var(--primary-color);
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            background-color: var(--bg-color);
+            z-index: 10;
+            position: relative;
+            max-height: 150px;
+            overflow-y: auto;
+            box-shadow: 0 2px 4px var(--shadow-light);
+        }
+        #suggestions div {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+            transition: background-color 0.2s ease-in-out;
+        }
+        #suggestions div:last-child { border-bottom: none; }
+        #suggestions div:hover, #suggestions div:focus { /* Added focus style for accessibility */
+            text-decoration: underline;
+            background-color: var(--table-hover-bg);
+            outline: none;
+        }
+
+        #cowInfo, #fileView {
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          padding: 16px;
+          background-color: var(--highlight-bg);
+          box-shadow: 0 4px 8px var(--shadow-light); /* Added shadow for depth */
+        }
+
+        #weightHistory {
+          list-style-type: none;
+          padding: 0;
+          max-height: 180px;
+          overflow-y: auto;
+          margin: 0 0 12px 0;
+          border: 1px solid var(--border-color);
+          border-radius: 5px;
+          background-color: var(--bg-color);
+        }
+        #weightHistory li {
+          padding: 8px 10px;
+          border-bottom: 1px solid var(--border-color);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          transition: background-color 0.2s ease-in-out;
+        }
+        #weightHistory li:hover {
+            background-color: var(--table-hover-bg);
+        }
+        #weightHistory li:last-child { border-bottom: none; }
+        #weightHistory button {
+          background: none; border: none; color: var(--error-color);
+          font-size: 1.2em; cursor: pointer; padding: 0; line-height: 1;
+          transition: color 0.2s ease-in-out, transform 0.1s ease-in-out;
+          box-shadow: none; /* Override button shadow */
+        }
+        #weightHistory button:hover {
+            color: color-mix(in srgb, var(--error-color) 80%, black);
+            transform: scale(1.1);
+        }
+
+        /* Styling for weight trend indicator */
+        .weight-trend {
+            font-size: 0.9em;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+        .weight-trend.gain { color: var(--gain-color); }
+        .weight-trend.loss { color: var(--loss-color); }
+        .weight-trend.stable { color: var(--stable-color); }
+
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 12px;
+        }
+        th, td {
+          border: 1px solid var(--border-color);
+          padding: 8px 12px;
+          text-align: left;
+        }
+        th { background-color: var(--highlight-bg); }
+
+        /* --- Table Sorting Styles --- */
+        thead th[data-sort-by] {
+          cursor: pointer;
+          position: relative;
+          user-select: none;
+        }
+        thead th[data-sort-by]::after {
+          content: '';
+          display: inline-block;
+          margin-left: 6px;
+          opacity: 0.4;
+          font-size: 0.8em;
+        }
+        thead th[data-sort-by].sorted-asc::after {
+          content: '▲';
+          opacity: 1;
+        }
+        thead th[data-sort-by].sorted-desc::after {
+          content: '▼';
+          opacity: 1;
+        }
+        /* --- End Sorting Styles --- */
+
+        tbody tr { cursor: pointer; }
+        tbody tr:hover { background-color: var(--table-hover-bg); }
+
+        #qr-reader { margin-top: 14px; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; }
+        #qr-torch { margin: 8px 0; text-align: center; }
+
+        /* Styling for the Torch Button */
+        #qr-torch button {
+            background-color: var(--button-bg); /* Use theme color */
+            color: var(--button-text);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            box-shadow: 0 2px 5px var(--shadow-medium);
+            transition: background-color 0.3s, transform 0.2s;
+            margin-top: 10px; /* Space from scanner */
+            width: auto; /* Ensure it doesn't stretch */
+            display: inline-block; /* For centering */
+            border: none; /* Remove default button border */
+        }
+        #qr-torch button:hover {
+            background-color: var(--button-hover-bg);
+            transform: translateY(-2px);
+        }
+        #qr-torch button:active {
+            transform: translateY(0);
+        }
+
+        .modal {
+          position: fixed; z-index: 1000;
+          top: 0; left: 0;
+          width: 100%; height: 100%;
+          background: var(--modal-overlay-bg);
+          display: flex;
+          align-items: center; justify-content: center;
+
+          /* Initial state for animations */
+          opacity: 0;
+          pointer-events: none; /* Prevent clicks when hidden */
+          transition: opacity 0.3s ease-in-out;
+        }
+        .modal.is-active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal.is-active .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .modal-content {
+          background: var(--modal-bg);
+          border-radius: 8px;
+          padding: 20px;
+          max-width: 340px;
+          width: 90%;
+          margin: auto;
+          position: relative;
+          box-shadow: 0 5px 15px var(--shadow-medium);
+          transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+          transform: translateY(-20px); /* Start slightly above for animation */
+          opacity: 0; /* Start invisible for animation */
+        }
+        #insightModal .modal-content, #batchWeightModal .modal-content {
+            max-width: 500px; /* Wider for insights and batch entry */
+        }
+
+
+        .modal-close-btn {
+          position: absolute; top: 8px; right: 12px;
+          border: none; background: none; color: var(--text-color);
+          font-size: 1.6rem; cursor: pointer; line-height: 1;
+          outline: none; /* Remove default focus outline */
+          transition: color 0.2s ease-in-out;
+        }
+        .modal-close-btn:hover {
+            color: var(--primary-color);
+        }
+        .modal-close-btn:focus-visible { /* Add custom focus style */
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+            border-radius: 3px;
+        }
+
+        .modal-header {
+          text-align: center; user-select: none;
+          font-size: 1.25rem; font-weight: 700; color: var(--primary-color);
+          margin: 8px 0 16px 0;
+        }
+        .modal-header .icon { font-size: 2.2rem; }
+
+        /* Custom Modal for Alert/Confirm/Insight/Loading/Prompt (general styles apply) */
+        /* Specific overrides if needed for these modals */
+        #customAlertModal .modal-content,
+        #customConfirmModal .modal-content,
+        #loadingModal .modal-content,
+        #customPromptModal .modal-content {
+            padding: 25px;
+        }
+
+        #customAlertModal p,
+        #customConfirmModal p,
+        #customPromptModal p {
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+
+        #customAlertModal button,
+        #customConfirmModal button,
+        #customPromptModal button,
+        #batchWeightModal .button-row button {
+            padding: 10px 20px;
+            margin: 0 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #customConfirmModal #confirmYesBtn,
+        #customPromptModal #promptOkBtn,
+        #batchWeightModal #saveBatchWeightsBtn {
+            background-color: var(--button-bg);
+            color: var(--button-text);
+        }
+
+        #customConfirmModal #confirmNoBtn,
+        #customPromptModal #promptCancelBtn,
+        #batchWeightModal #cancelBatchWeightsBtn {
+            background-color: #ccc;
+            color: #333;
+        }
+
+        #customPromptModal input[type="text"] {
+            margin-bottom: 15px;
+        }
+
+        /* Loading spinner styles */
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid var(--primary-color); /* Blue */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #weightChart {
+            margin-top: 12px;
+            width: 100%;
+        }
+
+        .hidden {
+            opacity: 0;
+            height: 0;
+            overflow: hidden;
+            margin-top: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            transform: translateY(10px); /* Slide down effect when hidden */
+            pointer-events: none;
+            transition: opacity 0.3s ease-out, height 0.3s ease-out, margin-top 0.3s ease-out, padding 0.3s ease-out, transform 0.3s ease-out;
+        }
+        /* Override specific sections not to use height/padding/border for hidden state */
+        #qr-reader.hidden {
+            height: auto; /* QR reader should collapse based on content */
+            padding: 0;
+            border: none;
+        }
+
+
+        /* Toast Notification styles */
+        #toastContainer {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .toast {
+            background-color: rgba(50, 50, 50, 0.9);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            transform: translateY(20px);
+            max-width: 90%;
+            text-align: center;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Herd Weight Tracker</h1>
+        <div id="statsBar" aria-live="polite" aria-atomic="true"></div>
+    </header>
+
+    <main>
+        <section id="entrySection">
+            <div class="flex-group">
+                <select id="animalDropdown" style="flex: 3;" aria-label="Select Animal Type"></select>
+                <button id="addAnimalBtn" title="Add new animal type">➕</button>
+                <button id="darkModeBtn" title="Toggle dark mode" class="icon-button">🌙</button>
+            </div>
+
+            <div class="checkbox-container">
+                <input type="checkbox" id="includeBreed" aria-labelledby="includeBreedLabel" />
+                <label id="includeBreedLabel" for="includeBreed">Include breed</label>
+            </div>
+
+            <div id="breedDropdownBox" class="hidden">
+                <label for="breedDropdown">Select breed</label>
+                <div class="flex-group">
+                    <select id="breedDropdown" aria-label="Select Breed"></select>
+                    <button id="addBreedBtn" title="Add new breed">➕</button>
+                </div>
+            </div>
+
+            <div class="checkbox-container">
+                <input type="checkbox" id="includeSex" aria-labelledby="includeSexLabel" />
+                <label id="includeSexLabel" for="includeSex">Include sex</label>
+            </div>
+
+            <div id="sexDropdownBox" class="hidden">
+                <label for="sexDropdown">Select Sex</label>
+                <select id="sexDropdown" aria-label="Select Sex">
+                    <option value="Unknown">Unknown</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+            </div>
+
+            <label for="dobInput">Date of Birth (Optional)</label>
+            <input type="date" id="dobInput" aria-label="Date of Birth" />
+
+            <label for="tagInput">Tag Number</label>
+            <input type="text" id="tagInput" placeholder="e.g., UK123456789" autocomplete="off" aria-autocomplete="list" aria-controls="suggestions" aria-describedby="tagInputValidationMsg" />
+            <span id="tagInputValidationMsg" class="validation-message"></span>
+            <div id="suggestions" role="listbox" aria-live="polite"></div>
+
+            <div class="button-row">
+                <button id="createNewCowBtn">➕ New Animal</button>
+                <button id="startQrScanBtn">📷 QR Scan</button>
+                <button id="openQrModalBtn">🏷️ Tag QR</button>
+                <button id="toggleFileViewBtn">📁 Saved</button>
+            </div>
+            <div id="qr-reader" class="hidden"></div>
+            <div id="qr-torch" class="hidden"></div>
+        </section>
+
+        <section id="cowInfo" class="hidden">
+            <p><strong>Tag:</strong> <span id="infoTag"></span></p>
+            <p><strong>Animal:</strong> <span id="infoAnimal"></span></p>
+            <p><strong>Breed:</strong> <span id="infoBreed"></span></p>
+            <p><strong>Sex:</strong> <span id="infoSex"></span></p>
+            <p><strong>DOB:</strong> <span id="infoDob">N/A</span> (<span id="infoAge"></span>)</p>
+            <p><strong>Last Weighed:</strong> <span id="lastWeightDate">N/A</span> <span id="weightChange" class="weight-trend"></span></p>
+
+            <h3>Weight History</h3>
+            <ul id="weightHistory"></ul>
+
+            <label for="weightInput">Add New Weight (kg):</label>
+            <input type="number" id="weightInput" placeholder="e.g., 580" style="width: 100%;" aria-describedby="weightInputValidationMsg" />
+            <span id="weightInputValidationMsg" class="validation-message"></span>
+
+            <label for="weightDateInput">Date:</label>
+            <div class="flex-group" style="flex-wrap: wrap;">
+                <input type="date" id="weightDateInput" style="flex:1; min-width:120px;" aria-describedby="weightDateInputValidationMsg" />
+                <span id="weightDateInputValidationMsg" class="validation-message"></span>
+                <button id="addWeightBtn" style="flex:1.1; min-width:100px;">💾 Save</button>
+            </div>
+            <div class="button-row">
+                <button id="getWeightInsightBtn">✨ Get Weight Insight</button>
+            </div>
+
+            <canvas id="weightChart" style="margin-top: 12px;"></canvas>
+
+            <h3>Notes</h3>
+            <textarea id="notesInput" rows="4" placeholder="Add any observations, health notes, or breeding information here..." aria-label="Animal Notes"></textarea>
+            <button id="saveNotesBtn" style="margin-top: 10px;">💾 Save Notes</button>
+        </section>
+
+        <section id="fileView" class="hidden">
+            <h3>Saved Animals</h3>
+            <input type="text" id="filterInput" placeholder="Filter by Tag, Animal, or Breed..." style="margin-bottom: 12px;" aria-label="Filter animals by tag, animal, or breed">
+            <div class="button-row">
+                <button id="deleteSelectedBtn" class="danger-btn">🗑️ Delete Selected</button>
+                <button id="deleteAllBtn" class="danger-btn">❌ Delete All</button>
+                <button id="batchWeightEntryBtn">📝 Batch Entry</button>
+            </div>
+            <table>
+                <thead>
+                <tr>
+                    <th><input type="checkbox" id="toggleAllCheckbox" aria-label="Toggle all animal selections" /></th>
+                    <th data-sort-by="tag">Tag</th>
+                    <th data-sort-by="animal">Animal</th>
+                    <th data-sort-by="breed">Breed</th>
+                </tr>
+                </thead>
+                <tbody id="fileTableBody"></tbody>
+            </table>
+
+            <h3 style="margin-top: 24px;">Data Management</h3>
+            <div class="data-buttons">
+                <button id="exportCsvBtn">⬇️ Export to CSV</button>
+                <button id="backupJsonBtn">💾 Backup to JSON</button>
+                <button id="restoreJsonBtn">🔄 Restore from JSON</button>
+            </div>
+            <input type="file" id="restoreFileInput" accept=".json" class="hidden" aria-label="Restore data from JSON file" />
+
+        </section>
+    </main>
+</div>
+
+<!-- Toast Notification Container -->
+<div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+<!-- QR Modal -->
+<div id="qrModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
+    <div class="modal-content">
+        <button id="closeQrModalBtn" class="modal-close-btn" aria-label="Close QR Code Generator">&times;</button>
+        <div class="modal-header">
+            <div class="icon">🏷️</div>
+            <h2 id="qrModalTitle">Generate QR Code</h2>
+        </div>
+        <label for="qrTagInput">Tag Number</label>
+        <input type="text" id="qrTagInput" placeholder="Enter or use current tag" />
+        <div class="button-row" style="grid-template-columns: 1fr 1fr; margin: 8px 0;">
+            <button id="qrUseCurrentBtn">Use Current</button>
+            <button id="qrRandomBtn">Random</button>
+        </div>
+        <button id="generateQrBtn" style="width: 100%; margin-bottom: 12px;">Generate QR</button>
+        <div id="qrOutput" style="text-align:center; min-height: 120px;" aria-live="polite"></div>
+        <div class="button-row" style="grid-template-columns: 1fr 1fr;">
+            <button id="downloadQrBtn">Download</button>
+            <button id="printQrBtn">Print</button>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Alert Modal -->
+<div id="customAlertModal" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="alertModalTitle" aria-describedby="alertMessage">
+    <div class="modal-content">
+        <h2 id="alertModalTitle" class="hidden">Alert</h2>
+        <p id="alertMessage"></p>
+        <button id="alertOkBtn">OK</button>
+    </div>
+</div>
+
+<!-- Custom Confirm Modal -->
+<div id="customConfirmModal" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmModalTitle" aria-describedby="confirmMessage">
+    <div class="modal-content">
+        <h2 id="confirmModalTitle" class="hidden">Confirmation</h2>
+        <p id="confirmMessage"></p>
+        <button id="confirmYesBtn">Yes</button>
+        <button id="confirmNoBtn">No</button>
+    </div>
+</div>
+
+<!-- AI Insight Modal -->
+<div id="insightModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="insightModalTitle">
+    <div class="modal-content">
+        <button id="closeInsightModalBtn" class="modal-close-btn" aria-label="Close Insight Modal">&times;</button>
+        <div class="modal-header">
+            <div class="icon">✨</div>
+            <h2 id="insightModalTitle">Weight Insight</h2>
+        </div>
+        <div id="insightContent" style="white-space: pre-wrap; font-size: 0.95rem;"></div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div id="loadingModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="loadingModalTitle">
+    <div class="modal-content">
+        <h2 id="loadingModalTitle" class="hidden">Loading</h2>
+        <div class="loader"></div>
+        <p id="loadingMessage">Processing...</p>
+    </div>
+</div>
+
+<!-- Custom Prompt Modal -->
+<div id="customPromptModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="promptModalTitle" aria-describedby="promptMessage">
+    <div class="modal-content">
+        <h2 id="promptModalTitle" class="hidden">Input Required</h2>
+        <p id="promptMessage"></p>
+        <input type="text" id="promptInput" aria-label="Enter response" />
+        <div class="button-row" style="grid-template-columns: 1fr 1fr;">
+            <button id="promptOkBtn">OK</button>
+            <button id="promptCancelBtn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Weight Entry Modal -->
+<div id="batchWeightModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="batchWeightModalTitle">
+    <div class="modal-content">
+        <button id="closeBatchWeightModalBtn" class="modal-close-btn" aria-label="Close Batch Weight Entry Modal">&times;</button>
+        <div class="modal-header">
+            <div class="icon">📝</div>
+            <h2 id="batchWeightModalTitle">Batch Weight Entry</h2>
+        </div>
+        <p>Enter weights and dates for selected animals.</p>
+        <div style="max-height: 300px; overflow-y: auto; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 5px;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="position: sticky; top: 0; background-color: var(--highlight-bg); z-index: 1; min-width: 120px;">Tag / Animal</th>
+                        <th style="position: sticky; top: 0; background-color: var(--highlight-bg); z-index: 1; min-width: 80px;">Weight (kg)</th>
+                        <th style="position: sticky; top: 0; background-color: var(--highlight-bg); z-index: 1; min-width: 120px;">Date</th>
+                    </tr>
+                </thead>
+                <tbody id="batchWeightTableBody">
+                    <!-- Rows will be dynamically added here -->
+                </tbody>
+            </table>
+        </div>
+        <div class="button-row">
+            <button id="saveBatchWeightsBtn">💾 Save All Weights</button>
+            <button id="cancelBatchWeightsBtn" class="danger-btn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Constants
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+    // Custom Toast Notification Function
+    function showToast(message, duration = 3000) {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        toastContainer.appendChild(toast);
+
+        // Force reflow to enable transition
+        void toast.offsetWidth;
+
+        toast.classList.add('show');
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.addEventListener('transitionend', () => toast.remove());
+        }, duration);
+    }
+
+    // Custom Alert, Confirm, Loading, and Prompt functions for consistent UI
+    let lastFocusedElement = null; // To store the element that was focused before opening a modal
+
+    function trapFocus(modalElement) {
+        const focusableElements = modalElement.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        const firstFocusable = focusableElements[0];
+        const lastFocusable = focusableElements[focusableElements.length - 1];
+
+        // If there are no focusable elements, do nothing
+        if (focusableElements.length === 0) return;
+
+        // Set initial focus
+        if (firstFocusable) {
+            firstFocusable.focus();
+        }
+
+        modalElement.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                if (e.shiftKey) { // Shift + Tab
+                    if (document.activeElement === firstFocusable) {
+                        lastFocusable.focus();
+                        e.preventDefault();
+                    }
+                } else { // Tab
+                    if (document.activeElement === lastFocusable) {
+                        firstFocusable.focus();
+                        e.preventDefault();
+                    }
+                }
+            }
+            // Close modal on Escape key
+            if (e.key === 'Escape') {
+                const closeButton = modalElement.querySelector('.modal-close-btn') || modalElement.querySelector('button');
+                if (closeButton) {
+                    closeButton.click(); // Trigger close action
+                }
+            }
+        });
+    }
+
+    function customAlert(message) {
+        return new Promise(resolve => {
+            const modal = document.getElementById('customAlertModal');
+            const msgElement = document.getElementById('alertMessage');
+            const okBtn = document.getElementById('alertOkBtn');
+
+            lastFocusedElement = document.activeElement; // Store current focus
+            msgElement.textContent = message;
+            modal.classList.add('is-active'); // Use class for animation
+            trapFocus(modal); // Trap focus in the modal
+
+            okBtn.onclick = () => {
+                modal.classList.remove('is-active'); // Use class for animation
+                // Wait for transition to complete before resolving and returning focus
+                modal.addEventListener('transitionend', function handler() {
+                    modal.removeEventListener('transitionend', handler);
+                    if (lastFocusedElement) {
+                        lastFocusedElement.focus();
+                        lastFocusedElement = null;
+                    }
+                    resolve();
+                });
+            };
+        });
+    }
+
+    function customConfirm(message) {
+        return new Promise(resolve => {
+            const modal = document.getElementById('customConfirmModal');
+            const msgElement = document.getElementById('confirmMessage');
+            const yesBtn = document.getElementById('confirmYesBtn');
+            const noBtn = document.getElementById('confirmNoBtn');
+
+            lastFocusedElement = document.activeElement; // Store current focus
+            msgElement.textContent = message;
+            modal.classList.add('is-active'); // Use class for animation
+            trapFocus(modal); // Trap focus in the modal
+
+            const cleanup = (result) => {
+                modal.classList.remove('is-active'); // Use class for animation
+                modal.addEventListener('transitionend', function handler() {
+                    modal.removeEventListener('transitionend', handler);
+                    if (lastFocusedElement) {
+                        lastFocusedElement.focus();
+                        lastFocusedElement = null;
+                    }
+                    yesBtn.onclick = null;
+                    noBtn.onclick = null;
+                    resolve(result);
+                });
+            };
+
+            yesBtn.onclick = () => cleanup(true);
+            noBtn.onclick = () => cleanup(false);
+        });
+    }
+
+    function customPrompt(message, defaultValue = '') {
+        return new Promise(resolve => {
+            const modal = document.getElementById('customPromptModal');
+            const msgElement = document.getElementById('promptMessage');
+            const inputElement = document.getElementById('promptInput');
+            const okBtn = document.getElementById('promptOkBtn');
+            const cancelBtn = document.getElementById('promptCancelBtn');
+
+            lastFocusedElement = document.activeElement; // Store current focus
+            msgElement.textContent = message;
+            inputElement.value = defaultValue;
+            modal.classList.add('is-active'); // Use class for animation
+            inputElement.focus(); // Focus the input field
+            trapFocus(modal); // Trap focus in the modal
+
+            const cleanup = (value) => {
+                modal.classList.remove('is-active'); // Use class for animation
+                modal.addEventListener('transitionend', function handler() {
+                    modal.removeEventListener('transitionend', handler);
+                    if (lastFocusedElement) {
+                        lastFocusedElement.focus();
+                        lastFocusedElement = null;
+                    }
+                    okBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    inputElement.onkeydown = null; // Remove event listener
+                    resolve(value);
+                });
+            };
+
+            okBtn.onclick = () => cleanup(inputElement.value);
+            cancelBtn.onclick = () => cleanup(null); // Resolve with null if cancelled
+
+            // Allow pressing Enter to confirm
+            inputElement.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    okBtn.click();
+                }
+            };
+        });
+    }
+
+    function showLoadingModal(message = "Processing...") {
+        const modal = document.getElementById('loadingModal');
+        const msgElement = document.getElementById('loadingMessage');
+        msgElement.textContent = message;
+        modal.classList.add('is-active'); // Use class for animation
+        trapFocus(modal); // Trap focus in the modal
+    }
+
+    function hideLoadingModal() {
+        const modal = document.getElementById('loadingModal');
+        modal.classList.remove('is-active'); // Use class for animation
+        modal.addEventListener('transitionend', function handler() {
+            modal.removeEventListener('transitionend', handler);
+            if (lastFocusedElement) {
+                lastFocusedElement.focus();
+                lastFocusedElement = null;
+            }
+        });
+    }
+
+    // Pre-determined insights data based on general research (simplified for illustration)
+    const PREDETERMINED_ANIMAL_INSIGHTS = {
+        "Cow": { /* Changed "Cattle" to "Cow" */
+            "Angus": {
+                type: "beef",
+                adultWeightRangeKg: { male: [800, 1100], female: [500, 700] }, // kg
+                avgDailyGainKg: { min: 1.0, max: 1.5 } // kg/day
+            },
+            "Hereford": {
+                type: "beef",
+                adultWeightRangeKg: { male: [900, 1200], female: [550, 750] },
+                avgDailyGainKg: { min: 0.9, max: 1.3 }
+            },
+            "Limousin": {
+                type: "beef",
+                adultWeightRangeKg: { male: [1000, 1300], female: [600, 800] },
+                avgDailyGainKg: { min: 1.1, max: 1.6 }
+            },
+            "Simmental": {
+                type: "dual-purpose",
+                adultWeightRangeKg: { male: [1000, 1300], female: [650, 900] },
+                avgDailyGainKg: { min: 1.0, max: 1.5 }
+            },
+            "Charolais": {
+                type: "beef",
+                adultWeightRangeKg: { male: [1000, 1400], female: [700, 950] },
+                avgDailyGainKg: { min: 1.2, max: 1.7 }
+            },
+            "Shorthorn": {
+                type: "dual-purpose",
+                adultWeightRangeKg: { male: [800, 1000], female: [550, 700] },
+                avgDailyGainKg: { min: 0.9, max: 1.4 }
+            },
+            "Belted Galloway": {
+                type: "beef",
+                adultWeightRangeKg: { male: [650, 900], female: [450, 650] },
+                avgDailyGainKg: { min: 0.8, max: 1.2 }
+            },
+            "British Blue": {
+                type: "beef",
+                adultWeightRangeKg: { male: [1100, 1400], female: [750, 1000] },
+                avgDailyGainKg: { min: 1.3, max: 1.8 }
+            },
+            "Jersey": {
+                type: "dairy",
+                adultWeightRangeKg: { male: [500, 700], female: [350, 500] },
+                avgDailyGainKg: { min: 0.7, max: 1.0 }
+            },
+            "Holstein": {
+                type: "dairy",
+                adultWeightRangeKg: { male: [900, 1200], female: [600, 800] },
+                avgDailyGainKg: { min: 0.9, max: 1.2 }
+            },
+            "Other": {
+                type: "general", // General fallback for breeds not specifically listed
+                adultWeightRangeKg: { male: [600, 1000], female: [400, 600] },
+                avgDailyGainKg: { min: 0.8, max: 1.3 }
+            }
+        },
+        "Sheep": {
+            "Suffolk": {
+                type: "meat",
+                adultWeightRangeKg: { male: [100, 150], female: [70, 90] },
+                avgDailyGainKg: { min: 0.25, max: 0.4 } // Lambs/growers
+            },
+            "Texel": {
+                type: "meat",
+                adultWeightRangeKg: { male: [90, 140], female: [65, 85] },
+                avgDailyGainKg: { min: 0.2, max: 0.35 }
+            },
+            "Dorset": {
+                type: "meat",
+                adultWeightRangeKg: { male: [90, 120], female: [60, 80] },
+                avgDailyGainKg: { min: 0.2, max: 0.3 }
+            },
+            "Cheviot": {
+                type: "meat/wool",
+                adultWeightRangeKg: { male: [70, 100], female: [50, 70] },
+                avgDailyGainKg: { min: 0.15, max: 0.25 }
+            },
+            "Jacob": {
+                type: "meat/wool",
+                adultWeightRangeKg: { male: [55, 80], female: [40, 60] },
+                avgDailyGainKg: { min: 0.1, max: 0.2 }
+            },
+            "Leicester": {
+                type: "wool/meat",
+                adultWeightRangeKg: { male: [90, 140], female: [60, 90] },
+                avgDailyGainKg: { min: 0.2, max: 0.3 }
+            },
+            "Merino": {
+                type: "wool",
+                adultWeightRangeKg: { male: [80, 120], female: [50, 80] },
+                avgDailyGainKg: { min: 0.1, max: 0.2 }
+            },
+            "Dorper": {
+                type: "meat",
+                adultWeightRangeKg: { male: [90, 120], female: [50, 80] },
+                avgDailyGainKg: { min: 0.25, max: 0.4 }
+            },
+            "Other": {
+                type: "general",
+                adultWeightRangeKg: { male: [60, 100], female: [40, 70] },
+                avgDailyGainKg: { min: 0.15, max: 0.3 }
+            }
+        },
+        "Pig": {
+            "Large White": {
+                type: "meat",
+                adultWeightRangeKg: { male: [250, 350], female: [200, 300] },
+                avgDailyGainKg: { min: 0.6, max: 1.0 } // Growing pigs
+            },
+            "Landrace": {
+                type: "meat",
+                adultWeightRangeKg: { male: [250, 350], female: [200, 300] },
+                avgDailyGainKg: { min: 0.6, max: 1.0 }
+            },
+            "Duroc": {
+                type: "meat",
+                adultWeightRangeKg: { male: [300, 400], female: [250, 350] },
+                avgDailyGainKg: { min: 0.7, max: 1.1 }
+            },
+            "Berkshire": {
+                type: "meat",
+                adultWeightRangeKg: { male: [200, 280], female: [150, 250] },
+                avgDailyGainKg: { min: 0.5, max: 0.8 }
+            },
+            "Tamworth": {
+                type: "meat",
+                adultWeightRangeKg: { male: [250, 370], female: [200, 300] },
+                avgDailyGainKg: { min: 0.5, max: 0.8 }
+            },
+            "Gloucestershire Old Spot": {
+                type: "meat",
+                adultWeightRangeKg: { male: [200, 300], female: [150, 250] },
+                avgDailyGainKg: { min: 0.4, max: 0.7 }
+            },
+            "Pietrain": {
+                type: "meat",
+                adultWeightRangeKg: { male: [250, 350], female: [200, 300] },
+                avgDailyGainKg: { min: 0.7, max: 1.1 }
+            },
+            "Other": {
+                type: "general",
+                adultWeightRangeKg: { male: [200, 300], female: [150, 250] },
+                avgDailyGainKg: { min: 0.5, max: 0.9 }
+            }
+        },
+        "Goat": {
+            "Boer": {
+                type: "meat",
+                adultWeightRangeKg: { male: [110, 135], female: [90, 100] },
+                avgDailyGainKg: { min: 0.15, max: 0.25 } // Kids/growers
+            },
+            "Saanen": {
+                type: "dairy",
+                adultWeightRangeKg: { male: [80, 100], female: [60, 80] },
+                avgDailyGainKg: { min: 0.1, max: 0.2 }
+            },
+            "Nubian": {
+                type: "dairy/meat",
+                adultWeightRangeKg: { male: [80, 120], female: [60, 90] },
+                avgDailyGainKg: { min: 0.12, max: 0.22 }
+            },
+            "Alpine": {
+                type: "dairy",
+                adultWeightRangeKg: { male: [75, 100], female: [55, 75] },
+                avgDailyGainKg: { min: 0.1, max: 0.2 }
+            },
+            "Angora": {
+                type: "fiber",
+                adultWeightRangeKg: { male: [50, 70], female: [35, 50] },
+                avgDailyGainKg: { min: 0.05, max: 0.15 }
+            },
+            "British Alpine": {
+                type: "dairy",
+                adultWeightRangeKg: { male: [80, 100], female: [60, 80] },
+                avgDailyGainKg: { min: 0.1, max: 0.2 }
+            },
+            "Other": {
+                type: "general",
+                adultWeightRangeKg: { male: [70, 100], female: [50, 80] },
+                avgDailyGainKg: { min: 0.1, max: 0.2 }
+            }
+        }
+    };
+
+
+    const HerdTrackerApp = {
+        state: {
+            cattle: {},
+            selectedTag: null,
+            qrScanner: null,
+            torchOn: false,
+            chart: null,
+            sortColumn: 'tag', // Default sort column
+            sortDirection: 'asc', // Default sort direction ('asc' or 'desc')
+            animalList: [
+                {name: "Cow", emoji: "🐮", breeds: ["Angus","Hereford","Limousin","Simmental","Charolais","Shorthorn","Belted Galloway","British Blue","Jersey","Holstein","Other"]}, /* Changed "Cattle" to "Cow" and added emoji */
+                {name: "Sheep", emoji: "🐑", breeds: ["Suffolk","Texel","Dorset","Cheviot","Jacob","Leicester","Merino","Dorper","Other"]},
+                {name: "Pig", emoji: "🐖", breeds: ["Large White","Landrace","Duroc","Berkshire","Tamworth","Gloucestershire Old Spot","Pietrain","Other"]},
+                {name: "Goat", emoji: "🐐", breeds: ["Boer","Saanen","Nubian","Alpine","Angora","British Alpine","Other"]},
+            ]
+        },
+
+        elements: {},
+
+        init() {
+            this.cacheDOMElements();
+            this.loadData();
+            this.attachEventListeners();
+            this.setInitialTheme();
+            this.renderAnimalDropdown();
+            this.renderBreedOptions();
+            this.updateStatsBar();
+            // Set initial date for weight input to today
+            this.elements.weightDateInput.valueAsDate = new Date();
+        },
+
+        cacheDOMElements() {
+            const ids = [
+                'statsBar', 'animalDropdown', 'addAnimalBtn', 'darkModeBtn', 'includeBreed',
+                'breedDropdownBox', 'breedDropdown', 'addBreedBtn', 'tagInput', 'suggestions',
+                'createNewCowBtn', 'startQrScanBtn', 'openQrModalBtn', 'toggleFileViewBtn',
+                'qr-reader', 'qr-torch', 'cowInfo', 'infoTag', 'infoAnimal', 'infoBreed', 'infoSex',
+                'weightHistory', 'weightInput', 'weightDateInput', 'addWeightBtn', 'weightChart',
+                'fileView', 'filterInput', 'deleteSelectedBtn', 'deleteAllBtn', 'exportCsvBtn',
+                'backupJsonBtn', 'restoreJsonBtn', 'restoreFileInput',
+                'fileTableBody', 'toggleAllCheckbox', 'qrModal', 'closeQrModalBtn', 'qrTagInput',
+                'qrUseCurrentBtn', 'qrRandomBtn', 'generateQrBtn', 'qrOutput', 'downloadQrBtn', 'printQrBtn',
+                'getWeightInsightBtn', 'insightModal', 'closeInsightModalBtn', 'insightContent', 'loadingModal', 'loadingMessage',
+                'customPromptModal', 'promptMessage', 'promptInput', 'promptOkBtn', 'promptCancelBtn',
+                'includeSex', 'sexDropdownBox', 'sexDropdown', 'dobInput', 'infoDob', 'infoAge',
+                'lastWeightDate', 'weightChange', 'notesInput', 'saveNotesBtn' // New elements
+            ];
+            ids.forEach(id => {
+                const camelCaseId = id.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+                this.elements[camelCaseId] = document.getElementById(id);
+            });
+            this.elements.sortableHeaders = document.querySelectorAll('#fileView th[data-sort-by]');
+        },
+
+        loadData() {
+            this.state.cattle = JSON.parse(localStorage.getItem('cattleDB') || '{}');
+        },
+
+        saveData() {
+            localStorage.setItem('cattleDB', JSON.stringify(this.state.cattle));
+            this.updateStatsBar();
+        },
+
+        attachEventListeners() {
+            const el = this.elements;
+            // Main controls
+            if (el.addAnimalBtn) el.addAnimalBtn.addEventListener('click', () => this.addCustomAnimal());
+            if (el.darkModeBtn) el.darkModeBtn.addEventListener('click', () => this.toggleDarkMode());
+            if (el.animalDropdown) el.animalDropdown.addEventListener('change', () => this.renderBreedOptions());
+            if (el.includeBreed) el.includeBreed.addEventListener('change', (e) => {
+                if (el.breedDropdownBox) { // Defensive check
+                    el.breedDropdownBox.classList.toggle('hidden', !e.target.checked);
+                }
+                this.renderBreedOptions(); // Re-render to ensure breed options are correct if adding/removing
+            });
+            if (el.includeSex) el.includeSex.addEventListener('change', (e) => {
+                if (el.sexDropdownBox) { // Defensive check
+                    el.sexDropdownBox.classList.toggle('hidden', !e.target.checked);
+                }
+            });
+            if (el.addBreedBtn) el.addBreedBtn.addEventListener('click', () => this.addCustomBreed());
+            if (el.tagInput) el.tagInput.addEventListener('input', () => {
+                if (el.tagInputValidationMsg) { // Defensive check
+                    this.clearValidationFeedback(el.tagInput, el.tagInputValidationMsg);
+                }
+                this.showSuggestions();
+            });
+            if (el.tagInput) el.tagInput.addEventListener('focus', () => this.showSuggestions());
+            document.addEventListener('click', (e) => {
+                if (el.suggestions && !e.target.closest('#tagInput') && !e.target.closest('#suggestions')) {
+                    el.suggestions.innerHTML = '';
+                    el.suggestions.style.display = 'none'; // Hide suggestions when clicking outside
+                }
+            });
+
+            // Button row
+            if (el.createNewCowBtn) el.createNewCowBtn.addEventListener('click', () => this.createNewCow());
+            if (el.startQrScanBtn) el.startQrScanBtn.addEventListener('click', () => this.startQrScanner());
+            if (el.openQrModalBtn) el.openQrModalBtn.addEventListener('click', () => this.openQrModal());
+            if (el.toggleFileViewBtn) el.toggleFileViewBtn.addEventListener('click', () => this.toggleFileView());
+
+            // Cow Info section
+            if (el.weightInput) el.weightInput.addEventListener('input', () => {
+                if (el.weightInputValidationMsg) { // Defensive check
+                    this.clearValidationFeedback(el.weightInput, el.weightInputValidationMsg);
+                }
+            });
+            if (el.weightDateInput) el.weightDateInput.addEventListener('input', () => {
+                if (el.weightDateInputValidationMsg) { // Defensive check
+                    this.clearValidationFeedback(el.weightDateInput, el.weightDateInputValidationMsg);
+                }
+            });
+            if (el.addWeightBtn) el.addWeightBtn.addEventListener('click', () => this.addWeight());
+            if (el.getWeightInsightBtn) el.getWeightInsightBtn.addEventListener('click', () => this.getWeightInsight());
+            
+            // Defensive checks for notes input and save button
+            if (el.notesInput) {
+                el.notesInput.addEventListener('change', () => this.saveNotes()); // Listener for save notes on change/blur
+            }
+            if (el.saveNotesBtn) {
+                el.saveNotesBtn.addEventListener('click', () => this.saveNotes()); // Listener for save notes button
+            }
+            
+
+            // File View section
+            if (el.filterInput) el.filterInput.addEventListener('input', (e) => this.renderFileTable());
+            if (el.deleteSelectedBtn) el.deleteSelectedBtn.addEventListener('click', () => this.deleteSelected());
+            if (el.deleteAllBtn) el.deleteAllBtn.addEventListener('click', () => this.confirmDeleteAll());
+            if (el.toggleAllCheckbox) el.toggleAllCheckbox.addEventListener('click', (e) => this.toggleAllCheckboxes(e.target.checked));
+            if (el.batchWeightEntryBtn) el.batchWeightEntryBtn.addEventListener('click', () => this.openBatchWeightModal()); // New batch entry button
+
+            // Attach sorting listeners
+            if (el.sortableHeaders) { // sortableHeaders is a NodeList, iterate over it
+                el.sortableHeaders.forEach(header => {
+                    header.addEventListener('click', () => {
+                        const sortBy = header.dataset.sortBy;
+                        if (this.state.sortColumn === sortBy) {
+                            this.state.sortDirection = this.state.sortDirection === 'asc' ? 'desc' : 'asc';
+                        } else {
+                            this.state.sortColumn = sortBy;
+                            this.state.sortDirection = 'asc';
+                        }
+                        this.renderFileTable();
+                    });
+                });
+            }
+
+
+            // Data Management Buttons
+            if (el.exportCsvBtn) el.exportCsvBtn.addEventListener('click', () => this.exportAllCSV());
+            if (el.backupJsonBtn) el.backupJsonBtn.addEventListener('click', () => this.backupToJson());
+            if (el.restoreJsonBtn) el.restoreJsonBtn.addEventListener('click', () => {
+                if (el.restoreFileInput) { // Defensive check
+                    el.restoreFileInput.click();
+                }
+            });
+            if (el.restoreFileInput) el.restoreFileInput.addEventListener('change', (e) => this.restoreFromJson(e));
+
+            // Modal listeners
+            if (el.closeQrModalBtn) el.closeQrModalBtn.addEventListener('click', () => this.closeQrModal());
+            if (el.qrUseCurrentBtn) el.qrUseCurrentBtn.addEventListener('click', () => {
+                if (el.qrTagInput) { // Defensive check
+                    el.qrTagInput.value = this.state.selectedTag || '';
+                }
+            });
+            if (el.qrRandomBtn) el.qrRandomBtn.addEventListener('click', () => {
+                if (el.qrTagInput) { // Defensive check
+                    el.qrTagInput.value = "UK" + Math.floor(Math.random() * 1e12).toString().padStart(12, "0");
+                }
+            });
+            if (el.generateQrBtn) el.generateQrBtn.addEventListener('click', () => this.generateQrInModal());
+            if (el.downloadQrBtn) el.downloadQrBtn.addEventListener('click', () => this.downloadQr());
+            if (el.printQrBtn) el.printQrBtn.addEventListener('click', () => window.print());
+
+            // Insight Modal listener
+            if (el.closeInsightModalBtn) el.closeInsightModalBtn.addEventListener('click', () => {
+                if (el.insightModal) { // Defensive check
+                    el.insightModal.classList.remove('is-active');
+                }
+                if (lastFocusedElement) { // Return focus
+                    lastFocusedElement.focus();
+                    lastFocusedElement = null;
+                }
+            });
+
+            // Batch Weight Modal listeners
+            if (el.closeBatchWeightModalBtn) el.closeBatchWeightModalBtn.addEventListener('click', () => this.closeBatchWeightModal());
+            if (el.saveBatchWeightsBtn) el.saveBatchWeightsBtn.addEventListener('click', () => this.saveBatchWeights());
+            if (el.cancelBatchWeightsBtn) el.cancelBatchWeightsBtn.addEventListener('click', () => this.closeBatchWeightModal());
+        },
+
+        // --- Validation Feedback Helpers ---
+        showValidationFeedback(inputElement, messageElement, message) {
+            inputElement.classList.add('is-invalid');
+            messageElement.textContent = message;
+            messageElement.style.display = 'block';
+        },
+
+        clearValidationFeedback(inputElement, messageElement) {
+            inputElement.classList.remove('is-invalid');
+            messageElement.textContent = '';
+            messageElement.style.display = 'none';
+        },
+
+        // --- Table Rendering and Sorting ---
+        renderFileTable() {
+            const { filterInput, fileTableBody, sortableHeaders } = this.elements;
+            const { sortColumn, sortDirection } = this.state;
+            const filterText = filterInput.value.trim().toUpperCase();
+
+            const animals = Object.values(this.state.cattle);
+
+            // 1. Filter the data
+            const filteredAnimals = animals.filter(cow => {
+                const tagMatch = typeof cow.tag === 'string' && cow.tag.toUpperCase().includes(filterText);
+                const animalMatch = typeof cow.animal === 'string' && cow.animal.toUpperCase().includes(filterText);
+                const breedMatch = typeof cow.breed === 'string' && cow.breed.toUpperCase().includes(filterText);
+                return tagMatch || animalMatch || breedMatch; // Match if any of them include the filter text
+            });
+
+            // 2. Sort the filtered data
+            filteredAnimals.sort((a, b) => {
+                const valA = (a[sortColumn] || '').toLowerCase();
+                const valB = (b[sortColumn] || '').toLowerCase();
+
+                let comparison = valA.localeCompare(valB, navigator.languages[0] || 'en', { numeric: true });
+
+                return sortDirection === 'asc' ? comparison : -comparison;
+            });
+
+            // 3. Render the table body
+            fileTableBody.innerHTML = "";
+            if (filteredAnimals.length === 0) {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `<td colspan="4" style="text-align: center; font-style: italic;">No animals found.</td>`;
+                fileTableBody.appendChild(tr);
+            } else {
+                filteredAnimals.forEach(cow => {
+                    const tr = document.createElement("tr");
+                    tr.dataset.tag = cow.tag;
+                    tr.innerHTML = `
+                        <td><input type="checkbox" class="rowCheckbox" data-tag="${cow.tag}" aria-label="Select animal ${cow.tag}"></td>
+                        <td>${cow.tag}</td>
+                        <td>${cow.animalEmoji || ''} ${cow.animal || "N/A"}</td>
+                        <td>${cow.breed || "N/A"}</td>`;
+                    tr.addEventListener('click', (e) => {
+                        // Only trigger showCowInfo if a checkbox wasn't clicked
+                        if (e.target.type !== 'checkbox') {
+                            this.showCowInfo(cow.tag);
+                            // Also hide file view and return to main entry section
+                            this.elements.fileView.classList.add('hidden');
+                            this.elements.cowInfo.classList.remove('hidden');
+                            this.elements.toggleFileViewBtn.textContent = '📁 Saved'; // Reset button text
+                        }
+                    });
+                    fileTableBody.appendChild(tr);
+                });
+            }
+
+
+            // 4. Update header classes for visual indicators
+            sortableHeaders.forEach(header => {
+                header.classList.remove('sorted-asc', 'sorted-desc');
+                if (header.dataset.sortBy === sortColumn) {
+                    header.classList.add(sortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                }
+            });
+             // Ensure 'select all' checkbox state is correct
+            this.elements.toggleAllCheckbox.checked = false; // Reset to unchecked
+            if (filteredAnimals.length > 0 && document.querySelectorAll('#fileTableBody .rowCheckbox:checked').length === filteredAnimals.length) {
+                this.elements.toggleAllCheckbox.checked = true;
+            }
+        },
+
+        getCustomItems(key) { return JSON.parse(localStorage.getItem(key) || "[]"); },
+        setCustomItems(key, arr) { localStorage.setItem(key, JSON.stringify(arr)); },
+
+        async backupToJson() {
+            const jsonString = JSON.stringify(this.state.cattle, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `herd-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Backup file created successfully!');
+        },
+
+        async restoreFromJson(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const confirmed = await customConfirm('This will overwrite all current data. Are you sure you want to restore from this file?');
+            if (!confirmed) {
+                event.target.value = ''; // Clear file input
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    // Basic validation to ensure it's an object and not an array, matching our cattleDB structure
+                    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+                        throw new Error('Invalid file format. Expected a JSON object.');
+                    }
+                    this.state.cattle = data;
+                    this.saveData();
+                    this.renderFileTable();
+                    showToast('Data restored successfully!');
+                } catch (error) {
+                    await customAlert('Error reading or parsing file: ' + error.message);
+                } finally {
+                    event.target.value = ''; // Clear file input
+                }
+            };
+            reader.readAsText(file);
+        },
+
+        exportAllCSV() {
+            let csv = `Tag,Animal,Breed,Sex,DOB,Weight,Date,Notes\n`; // Added DOB and Notes
+            for(let tag in this.state.cattle) {
+                const cow = this.state.cattle[tag];
+                const animal = cow.animal || "";
+                const breed = cow.breed || "";
+                const sex = cow.sex || "Unknown";
+                const dob = cow.dob || "";
+                const notes = (cow.notes || "").replace(/"/g, '""'); // Handle quotes in notes for CSV
+
+                if (cow.weights && cow.weights.length) {
+                    csv += cow.weights.map(w => `"${cow.tag}","${animal}","${breed}","${sex}","${dob}",${w.weight},"${w.date}","${notes}"`).join("\n") + "\n";
+                } else {
+                    csv += `"${cow.tag}","${animal}","${breed}","${sex}","${dob}",,,"${notes}"\n`; // Export notes even if no weights
+                }
+            }
+            const a = document.createElement("a");
+            a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+            a.download = `herd_weight_export_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            showToast('CSV file exported successfully!');
+        },
+
+        startQrScanner() {
+            const el = this.elements;
+            if (!el.qrReader) { // Defensive check
+                console.error("QR reader element not found.");
+                return;
+            }
+            el.qrReader.classList.remove('hidden');
+            if (this.state.qrScanner) this.stopQrScanner();
+
+            // Set focus to the QR reader area for accessibility
+            el.qrReader.setAttribute('tabindex', '-1');
+            el.qrReader.focus();
+
+            this.state.qrScanner = new Html5Qrcode("qr-reader");
+            this.state.qrScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                async (qrCodeMessage) => {
+                    if (el.tagInput) { // Defensive check
+                        el.tagInput.value = qrCodeMessage;
+                    }
+                    this.stopQrScanner();
+                    this.showCowInfo(qrCodeMessage);
+                    showToast(`QR Code Scanned: ${qrCodeMessage}`);
+                },
+                (errorMessage) => { /* console.warn("QR Scan Error: ", errorMessage); */ }
+            ).then(() => {
+                try {
+                    const track = this.state.qrScanner.getRunningTrack();
+                    const capabilities = track.getCapabilities();
+                    if (capabilities.torch) {
+                        if (el.qrTorch) { // Defensive check
+                            el.qrTorch.classList.remove('hidden'); // This makes the div visible
+                            el.qrTorch.innerHTML = `<button id="torchBtn" aria-label="Toggle camera torch">💡 Toggle Torch</button>`;
+                            const torchBtn = document.getElementById('torchBtn');
+                            if (torchBtn) { // Defensive check
+                                torchBtn.addEventListener('click', () => {
+                                    this.state.torchOn = !this.state.torchOn;
+                                    track.applyConstraints({ advanced: [{ torch: this.state.torchOn }] });
+                                });
+                            }
+                        }
+                    }
+                } catch (e) { console.warn("Could not access torch capabilities.", e)}
+            }).catch(async err => {
+                await customAlert("QR Scanner Error: " + err);
+                if (el.qrReader) { // Defensive check
+                    el.qrReader.removeAttribute('tabindex'); // Remove tabindex if scan fails
+                }
+            });
+        },
+
+        stopQrScanner() {
+            if (this.state.qrScanner && this.state.qrScanner.isScanning) {
+                this.state.qrScanner.stop().then(() => {
+                    if (this.elements.qrReader) { // Defensive check
+                        this.elements.qrReader.classList.add('hidden');
+                    }
+                    if (this.elements.qrTorch) { // Defensive check
+                        this.elements.qrTorch.classList.add('hidden');
+                    }
+                    if (this.elements.qrReader) { // Defensive check
+                        this.elements.qrReader.removeAttribute('tabindex'); // Remove tabindex on close
+                    }
+                    this.state.torchOn = false;
+                }).catch(err => { /* Do nothing, already stopped or failed gracefully */ });
+            }
+        },
+
+        renderAnimalDropdown() {
+            const el = this.elements;
+            if (!el.animalDropdown) return; // Defensive check
+            el.animalDropdown.innerHTML = "";
+            const allAnimals = [...this.state.animalList, ...this.getCustomItems("customAnimals")];
+            allAnimals.forEach(({name, emoji}) => {
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = `${emoji || '🆕'} ${name}`;
+                el.animalDropdown.appendChild(opt);
+            });
+        },
+
+        async addCustomAnimal() {
+            const name = await customPrompt("Enter animal name (e.g., Buffalo):");
+            if (!name || name.trim() === '') return; // Added check for empty/whitespace input
+
+            const allAnimals = [...this.state.animalList, ...this.getCustomItems("customAnimals")];
+            if (allAnimals.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+                return await customAlert("Animal already exists.");
+            }
+            const emoji = await customPrompt(`Enter emoji for ${name} (optional):`);
+            let customAnimals = this.getCustomItems("customAnimals");
+            customAnimals.push({name: name.trim(), emoji: emoji ? emoji.trim() : "🆕"}); // Trim inputs
+            this.setCustomItems("customAnimals", customAnimals);
+            this.renderAnimalDropdown();
+            if (this.elements.animalDropdown) { // Defensive check
+                this.elements.animalDropdown.value = name.trim();
+            }
+            this.renderBreedOptions();
+            showToast(`'${name.trim()}' animal type added!`);
+        },
+
+        renderBreedOptions() {
+            const el = this.elements;
+            if (!el.animalDropdown || !el.breedDropdown || !el.addBreedBtn) return; // Defensive check
+            const selectedAnimalName = el.animalDropdown.value;
+            const allAnimals = [...this.state.animalList, ...this.getCustomItems("customAnimals")];
+            const animalObj = allAnimals.find(a => a.name === selectedAnimalName) || { breeds: [] };
+            const customBreeds = this.getCustomItems("customBreeds_" + selectedAnimalName);
+            // Combine default and custom breeds, remove duplicates, and ensure "Other" is at the end if present
+            let breeds = [...new Set([...(animalObj.breeds || []), ...customBreeds])];
+            const otherIndex = breeds.indexOf("Other");
+            if (otherIndex > -1) {
+                breeds.splice(otherIndex, 1); // Remove "Other" if it exists
+                breeds.push("Other"); // Add it to the end
+            } else if (animalObj.breeds.length > 0 || customBreeds.length > 0) { // Add "Other" if there are any breeds to categorize
+                breeds.push("Other");
+            }
+
+
+            el.breedDropdown.innerHTML = "";
+            breeds.forEach(b => {
+                const opt = document.createElement("option");
+                opt.value = b;
+                opt.textContent = b;
+                el.breedDropdown.appendChild(opt);
+            });
+            if (el.breedDropdownBox) { // Defensive check
+                el.addBreedBtn.classList.toggle('hidden', el.breedDropdownBox.classList.contains('hidden'));
+            }
+        },
+
+        async addCustomBreed() {
+            const el = this.elements;
+            if (!el.animalDropdown || !el.breedDropdown) return; // Defensive check
+            const animalName = el.animalDropdown.value;
+            const breed = await customPrompt(`Enter new breed for ${animalName}:`);
+            if (!breed || breed.trim() === '') return; // Added check for empty/whitespace input
+
+            let key = "customBreeds_" + animalName;
+            let breeds = this.getCustomItems(key);
+            if (breeds.some(b => b.toLowerCase() === breed.toLowerCase())) {
+                return await customAlert("Breed already exists.");
+            }
+            breeds.push(breed.trim()); // Trim input
+            this.setCustomItems(key, breeds);
+            this.renderBreedOptions();
+            el.breedDropdown.value = breed.trim();
+            showToast(`'${breed.trim()}' breed added for ${animalName}!`);
+        },
+
+        showSuggestions() {
+            const el = this.elements;
+            if (!el.tagInput || !el.suggestions) return; // Defensive check
+            const value = el.tagInput.value.trim().toUpperCase();
+            el.suggestions.innerHTML = "";
+            if (value.length === 0) {
+                el.suggestions.style.display = 'none'; // Hide suggestions if input is empty
+                return;
+            }
+
+            el.suggestions.style.display = 'block'; // Show suggestions container
+
+            const matches = Object.keys(this.state.cattle)
+                .filter(tag => tag.toUpperCase().startsWith(value))
+                .slice(0, 5); // Limit to 5 suggestions
+
+            if (matches.length === 0) {
+                el.suggestions.style.display = 'none'; // Hide if no matches
+                return;
+            }
+
+            matches.forEach(tag => {
+                const div = document.createElement("div");
+                div.textContent = tag;
+                div.setAttribute('role', 'option'); // ARIA for listbox option
+                div.setAttribute('tabindex', '0'); // Make div focusable
+                div.onclick = () => {
+                    if (el.tagInput) { // Defensive check
+                        el.tagInput.value = tag;
+                    }
+                    el.suggestions.innerHTML = "";
+                    el.suggestions.style.display = 'none';
+                    this.showCowInfo(tag);
+                };
+                el.suggestions.appendChild(div);
+            });
+        },
+
+        async createNewCow() {
+            const el = this.elements;
+            if (!el.tagInput || !el.tagInputValidationMsg || !el.animalDropdown || !el.cowInfo || !el.weightInput) return; // Defensive check
+            const tag = el.tagInput.value.trim().toUpperCase();
+            const dob = el.dobInput ? el.dobInput.value : ""; // Get DOB, defensive check
+            this.clearValidationFeedback(el.tagInput, el.tagInputValidationMsg);
+
+            if (!tag) {
+                this.showValidationFeedback(el.tagInput, el.tagInputValidationMsg, "Please enter a tag number.");
+                return;
+            }
+            if (this.state.cattle[tag]) {
+                this.showValidationFeedback(el.tagInput, el.tagInputValidationMsg, "That tag already exists!");
+                return;
+            }
+
+            const animalName = el.animalDropdown.value;
+            const allAnimals = [...this.state.animalList, ...this.getCustomItems("customAnimals")];
+            const animalObj = allAnimals.find(a => a.name === animalName) || {};
+
+            this.state.cattle[tag] = {
+                tag,
+                animal: animalName,
+                animalEmoji: animalObj.emoji || '🆕',
+                breed: el.includeBreed.checked ? el.breedDropdown.value : "",
+                sex: el.includeSex.checked ? el.sexDropdown.value : "Unknown", // Store sex
+                dob: dob, // Store DOB
+                weights: [],
+                notes: "", // Initialize notes field
+                created: Date.now()
+            };
+            this.saveData();
+            this.showCowInfo(tag);
+            el.tagInput.value = "";
+            if (el.dobInput) { // Clear DOB input
+                el.dobInput.value = "";
+            }
+            if (el.suggestions) { // Defensive check
+                el.suggestions.innerHTML = "";
+                el.suggestions.style.display = 'none';
+            }
+            showToast("Animal added successfully!");
+            el.cowInfo.scrollIntoView({ behavior: 'smooth' });
+            el.weightInput.focus();
+        },
+
+        calculateAge(dobString) {
+            if (!dobString) return "N/A";
+            const dob = new Date(dobString);
+            const now = new Date();
+            let years = now.getFullYear() - dob.getFullYear();
+            let months = now.getMonth() - dob.getMonth();
+            let days = now.getDate() - dob.getDate();
+
+            if (days < 0) {
+                months--;
+                days += new Date(now.getFullYear(), now.getMonth(), 0).getDate(); // Days in previous month
+            }
+            if (months < 0) {
+                years--;
+                months += 12;
+            }
+
+            if (years > 0) {
+                return `${years} year${years === 1 ? '' : 's'}${months > 0 ? `, ${months} month${months === 1 ? '' : 's'}` : ''}`;
+            } else if (months > 0) {
+                return `${months} month${months === 1 ? '' : 's'}${days > 0 ? `, ${days} day${days === 1 ? '' : 's'}` : ''}`;
+            } else {
+                return `${days} day${days === 1 ? '' : 's'}`;
+            }
+        },
+
+        showCowInfo(tag) {
+            const el = this.elements;
+            if (!this.state.cattle[tag] || !el.cowInfo || !el.infoTag || !el.infoAnimal || !el.infoBreed || !el.infoSex || !el.infoDob || !el.infoAge || !el.notesInput || !el.lastWeightDate || !el.weightChange || !el.weightHistory || !el.weightInput || !el.weightDateInput) {
+                if (el.cowInfo) { // Defensive check
+                    el.cowInfo.classList.add('hidden');
+                }
+                return;
+            }
+            this.state.selectedTag = tag;
+            const cow = this.state.cattle[tag];
+            
+
+            el.infoTag.textContent = cow.tag;
+            el.infoAnimal.textContent = `${cow.animalEmoji || ''} ${cow.animal}`;
+            el.infoBreed.textContent = cow.breed || "N/A";
+            el.infoSex.textContent = cow.sex || "Unknown"; // Display sex
+            el.infoDob.textContent = cow.dob || "N/A"; // Display DOB
+            el.infoAge.textContent = this.calculateAge(cow.dob); // Display calculated age
+            el.notesInput.value = cow.notes || ""; // Load notes
+
+            // Display last weighed date and weight change
+            if (cow.weights && cow.weights.length > 0) {
+                const lastWeight = cow.weights[cow.weights.length - 1];
+                el.lastWeightDate.textContent = lastWeight.date;
+
+                if (cow.weights.length > 1) {
+                    const secondLastWeight = cow.weights[cow.weights.length - 2];
+                    const change = lastWeight.weight - secondLastWeight.weight;
+                    const daysBetween = (new Date(lastWeight.date).getTime() - new Date(secondLastWeight.date).getTime()) / MS_PER_DAY;
+
+                    let changeText = '';
+                    let changeClass = '';
+                    if (change > 0) {
+                        changeText = `(+${change.toFixed(1)} kg`;
+                        changeClass = 'gain';
+                    } else if (change < 0) {
+                        changeText = `(${change.toFixed(1)} kg`;
+                        changeClass = 'loss';
+                    } else {
+                        changeText = `(No change`;
+                        changeClass = 'stable';
+                    }
+
+                    if (daysBetween > 0) {
+                        const dailyChange = change / daysBetween;
+                        changeText += ` / ${dailyChange.toFixed(2)} kg/day)`;
+                    } else {
+                        changeText += `)`;
+                    }
+                    el.weightChange.textContent = changeText;
+                    el.weightChange.className = `weight-trend ${changeClass}`;
+                } else {
+                    el.weightChange.textContent = "(First entry)";
+                    el.weightChange.className = 'weight-trend stable';
+                }
+            } else {
+                el.lastWeightDate.textContent = "N/A";
+                el.weightChange.textContent = "";
+                el.weightChange.className = 'weight-trend';
+            }
+
+
+            el.weightHistory.innerHTML = "";
+            if (cow.weights && cow.weights.length > 0) {
+                cow.weights.forEach((w, i) => {
+                    const li = document.createElement('li');
+                    let trendIndicator = '';
+                    if (i > 0) {
+                        const prevWeight = cow.weights[i - 1].weight;
+                        if (w.weight > prevWeight) {
+                            trendIndicator = '⬆️';
+                        } else if (w.weight < prevWeight) {
+                            trendIndicator = '⬇️';
+                        } else {
+                            trendIndicator = '➡️';
+                        }
+                    }
+                    li.innerHTML = `${w.weight} kg on ${w.date} ${trendIndicator} <button data-index="${i}" title="Delete weight entry" aria-label="Delete weight entry ${w.weight}kg on ${w.date}">&times;</button>`;
+                    el.weightHistory.appendChild(li);
+                });
+            } else {
+                el.weightHistory.innerHTML = "<li>No weights recorded.</li>";
+            }
+
+            el.weightHistory.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', (e) => this.deleteWeight(parseInt(e.target.dataset.index)));
+            });
+
+            el.cowInfo.classList.remove('hidden');
+            if (el.fileView) { // Defensive check
+                el.fileView.classList.add('hidden');
+            }
+            this.drawChart(cow.weights);
+
+            // Clear any previous validation messages when switching cows
+            if (el.weightInputValidationMsg) { // Defensive check
+                this.clearValidationFeedback(el.weightInput, el.weightInputValidationMsg);
+            }
+            if (el.weightDateInputValidationMsg) { // Defensive check
+                this.clearValidationFeedback(el.weightDateInput, el.weightDateInputValidationMsg);
+            }
+        },
+
+        saveNotes() {
+            if (!this.state.selectedTag || !this.elements.notesInput) return; // Defensive check
+            const cow = this.state.cattle[this.state.selectedTag];
+            const newNotes = this.elements.notesInput.value.trim();
+            if (cow.notes !== newNotes) { // Only save if changed
+                cow.notes = newNotes;
+                this.saveData();
+                showToast('Notes saved!');
+            }
+        },
+
+        deleteWeight(index) {
+            if (!this.state.selectedTag) return;
+            const confirmed = confirm(`Are you sure you want to delete this weight entry?`);
+            if (confirmed) {
+                this.state.cattle[this.state.selectedTag].weights.splice(index, 1);
+                this.saveData();
+                this.showCowInfo(this.state.selectedTag);
+                showToast('Weight entry deleted!');
+            }
+        },
+
+        async addWeight() {
+            if (!this.state.selectedTag) {
+                return await customAlert("Select an animal first.");
+            }
+            const el = this.elements;
+            if (!el.weightInput || !el.weightDateInput || !el.weightInputValidationMsg || !el.weightDateInputValidationMsg) return; // Defensive check
+            const weight = parseFloat(el.weightInput.value);
+            const date = el.weightDateInput.value;
+
+            // Clear previous validation feedback
+            this.clearValidationFeedback(el.weightInput, el.weightInputValidationMsg);
+            this.clearValidationFeedback(el.weightDateInput, el.weightDateInputValidationMsg);
+
+            let isValid = true;
+
+            if (isNaN(weight) || weight <= 0) {
+                this.showValidationFeedback(el.weightInput, el.weightInputValidationMsg, "Please enter a valid weight (e.g., 580.5).");
+                isValid = false;
+            }
+            if (!date) {
+                this.showValidationFeedback(el.weightDateInput, el.weightDateInputValidationMsg, "Please select a date.");
+                isValid = false;
+            }
+
+            if (!isValid) return;
+
+            const cow = this.state.cattle[this.state.selectedTag];
+            const newWeightDate = new Date(date);
+
+            if (cow.weights && cow.weights.length > 0) {
+                const lastWeightDate = new Date(cow.weights[cow.weights.length - 1].date);
+                if (newWeightDate < lastWeightDate) {
+                    this.showValidationFeedback(el.weightDateInput, el.weightDateInputValidationMsg, "New weight date cannot be earlier than the last recorded date.");
+                    return;
+                }
+            }
+
+            this.state.cattle[this.state.selectedTag].weights.push({ weight, date });
+            this.state.cattle[this.state.selectedTag].weights.sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort by date
+            this.saveData();
+            this.showCowInfo(this.state.selectedTag);
+            el.weightInput.value = "";
+            el.weightDateInput.valueAsDate = new Date(); // Keep the date input as today's date after adding a weight
+            showToast('Weight entry saved successfully!');
+        },
+
+        drawChart(weights) {
+            const el = this.elements;
+            if (!el.weightChart) return; // Defensive check
+            if (this.state.chart) {
+                this.state.chart.destroy();
+            }
+
+            const data = weights.map(w => ({ x: w.date, y: w.weight }));
+            const labels = weights.map(w => w.date); // Dates for X-axis
+
+            this.state.chart = new Chart(el.weightChart, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Weight (kg)',
+                        data: data,
+                        borderColor: 'var(--primary-color)',
+                        backgroundColor: 'rgba(3, 102, 214, 0.2)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true, // Set to true to control aspect ratio
+                    aspectRatio: 2, // Width will be 2 times the height, good for mobile line charts
+                    scales: {
+                        x: {
+                            type: 'time', // Use 'time' scale for dates
+                            time: {
+                                unit: 'day', // Display by day
+                                tooltipFormat: 'MMM d,yyyy', // Formats tooltip date (e.g., Jan 1, 2023)
+                                displayFormats: {
+                                    day: 'MMM d'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Weight (kg)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y} kg`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        },
+
+        async getWeightInsight() {
+            if (!this.state.selectedTag) {
+                return await customAlert("Please select an animal first to get weight insight.");
+            }
+            const cow = this.state.cattle[this.state.selectedTag];
+            const animalType = cow.animal;
+            const breedType = cow.breed;
+            const sex = cow.sex || 'Unknown'; // Get sex
+            const dobString = cow.dob;
+            const weights = cow.weights;
+
+            if (!weights || weights.length < 2) {
+                return await customAlert("Need at least two weight entries to generate an insight.");
+            }
+
+            showLoadingModal("Analyzing weight data...");
+            if (this.elements.insightContent) { // Defensive check
+                this.elements.insightContent.innerHTML = ''; // Clear previous content
+            }
+            
+
+            let insightText = "Unable to provide a specific insight for this animal.";
+
+            try {
+                // Find breed-specific data, fallback to general animal type, then 'Other'
+                const breedData = PREDETERMINED_ANIMAL_INSIGHTS[animalType]?.[breedType] ||
+                                 PREDETERMINED_ANIMAL_INSIGHTS[animalType]?.["Other"];
+
+                if (breedData) {
+                    const firstWeightEntry = weights[0];
+                    const lastWeightEntry = weights[weights.length - 1];
+
+                    const firstDate = new Date(firstWeightEntry.date);
+                    const lastDate = new Date(lastWeightEntry.date);
+                    const totalGain = lastWeightEntry.weight - firstWeightEntry.weight;
+                    const daysSpan = (lastDate.getTime() - firstDate.getTime()) / MS_PER_DAY; // Use constant
+
+                    let avgDailyGain = 0;
+                    if (daysSpan > 0) {
+                        avgDailyGain = totalGain / daysSpan;
+                    }
+
+                    // Start building the insight
+                    insightText = `Insight for ${cow.animal} (${cow.breed || 'N/A'}) - Tag: ${cow.tag} - Sex: ${sex}\n`;
+                    if (dobString) {
+                         const age = this.calculateAge(dobString);
+                         insightText += `DOB: ${dobString} (Age: ${age})\n`;
+                    }
+                    insightText += `\nTotal weight entries: ${weights.length}\n`;
+                    insightText += `Weight change over ${daysSpan.toFixed(0)} days: ${totalGain.toFixed(2)} kg.\n`;
+                    insightText += `Average daily gain: ${avgDailyGain.toFixed(2)} kg/day.\n\n`;
+
+                    if (avgDailyGain > 0) {
+                        // Use sex-specific daily gain if available, fallback to general if not.
+                        const typicalMinGain = breedData.avgDailyGainKg.min;
+                        const typicalMaxGain = breedData.avgDailyGainKg.max;
+
+                        if (avgDailyGain >= typicalMinGain && avgDailyGain <= typicalMaxGain) {
+                            insightText += `Trend: This animal shows consistent growth within the typical range for its breed. Keep up the good management!`;
+                        } else if (avgDailyGain > typicalMaxGain) {
+                            insightText += `Trend: The animal is gaining weight faster than the typical rate for its breed. This could indicate excellent feed conversion or early maturity.`;
+                        } else { // avgDailyGain < typicalMinGain
+                            insightText += `Trend: Growth appears slower than the typical rate for its breed. Consider reviewing feed, health, or environmental factors.`;
+                        }
+                    } else if (avgDailyGain < 0) {
+                        insightText += `Trend: The animal has shown a weight loss. It's important to investigate causes such as health issues, diet, or stress.`;
+                    } else { // avgDailyGain === 0
+                        insightText += `Trend: Weight appears stable or has shown no significant change over the recorded period.`;
+                    }
+
+                    // Additional check for latest weight vs. adult range (using sex if known)
+                    const latestWeight = lastWeightEntry.weight;
+                    let targetAdultRange = null;
+
+                    if (sex === 'Male' && breedData.adultWeightRangeKg.male) {
+                        targetAdultRange = breedData.adultWeightRangeKg.male;
+                    } else if (sex === 'Female' && breedData.adultWeightRangeKg.female) {
+                        targetAdultRange = breedData.adultWeightRangeKg.female;
+                    } else if (breedData.adultWeightRangeKg.general) {
+                        targetAdultRange = breedData.adultWeightRangeKg.general; // Fallback to a general range if available
+                    } else {
+                        // If no sex-specific or general data, try to infer from male/female if present
+                        const minOverall = Math.min(
+                            breedData.adultWeightRangeKg.male?.[0] || Infinity,
+                            breedData.adultWeightRangeKg.female?.[0] || Infinity
+                        );
+                        const maxOverall = Math.max(
+                            breedData.adultWeightRangeKg.male?.[1] || -Infinity,
+                            breedData.adultWeightRangeKg.female?.[1] || -Infinity
+                        );
+                        if (minOverall !== Infinity && maxOverall !== -Infinity) {
+                            targetAdultRange = [minOverall, maxOverall];
+                        }
+                    }
+
+                    if (targetAdultRange) {
+                        const minAdultWeight = targetAdultRange[0];
+                        const maxAdultWeight = targetAdultRange[1];
+
+                        if (latestWeight < minAdultWeight * 0.75) {
+                            insightText += `\n\nCurrent weight (${latestWeight} kg) suggests it's likely a young or still developing animal, or potentially underweight for its estimated adult size.`;
+                        } else if (latestWeight > maxAdultWeight * 1.1) {
+                            insightText += `\n\nCurrent weight (${latestWeight} kg) is notably high, potentially indicating full maturity, excellent development, or a larger individual for its breed and sex.`;
+                        } else if (latestWeight >= minAdultWeight && latestWeight <= maxAdultWeight) {
+                            insightText += `\n\nCurrent weight (${latestWeight} kg) falls within the typical adult weight range for its breed and sex.`;
+                        }
+                    } else {
+                        insightText += `\n\nNo specific adult weight range available to compare the current weight (${latestWeight} kg).`;
+                    }
+
+                } else {
+                    insightText = `No specific benchmark data available for ${animalType} (${breedType || 'N/A'}).\n\n`;
+                    insightText += `Total weight entries: ${weights.length}\n`;
+                    const firstWeightEntry = weights[0];
+                    const lastWeightEntry = weights[weights.length - 1];
+                    const totalGain = lastWeightEntry.weight - firstWeightEntry.weight;
+                    const firstDate = new Date(firstWeightEntry.date);
+                    const lastDate = new Date(lastWeightEntry.date);
+                    const daysSpan = (lastDate.getTime() - firstDate.getTime()) / MS_PER_DAY; // Use constant
+                    let avgDailyGain = 0;
+                    if (daysSpan > 0) {
+                        avgDailyGain = totalGain / daysSpan;
+                    }
+                    insightText += `Weight change over ${daysSpan.toFixed(0)} days: ${totalGain.toFixed(2)} kg.\n`;
+                    insightText += `Average daily gain: ${avgDailyGain.toFixed(2)} kg/day.\n\n`;
+                    if (avgDailyGain > 0) {
+                        insightText += `Overall, the animal is showing a positive weight trend.`;
+                    } else if (avgDailyGain < 0) {
+                        insightText += `Overall, the animal is showing a negative weight trend. Consider checking health or diet.`;
+                    } else {
+                        insightText += `Overall, the animal's weight has remained stable.`;
+                    }
+                }
+
+                if (this.elements.insightContent) { // Defensive check
+                    this.elements.insightContent.textContent = insightText;
+                }
+                if (this.elements.insightModal) { // Defensive check
+                    this.elements.insightModal.classList.add('is-active'); // Show insight modal
+                    trapFocus(this.elements.insightModal); // Trap focus
+                }
+            } catch (error) {
+                console.error("Error generating weight insight:", error);
+                await customAlert("Failed to generate insight: " + error.message);
+            } finally {
+                hideLoadingModal(); // Hide loading modal
+            }
+        },
+
+        updateStatsBar() {
+            const totalAnimals = Object.keys(this.state.cattle).length;
+            const animalsWithWeights = Object.values(this.state.cattle).filter(cow => cow.weights && cow.weights.length > 0).length;
+            if (this.elements.statsBar) { // Defensive check
+                this.elements.statsBar.innerHTML = `Total Animals: <strong>${totalAnimals}</strong> | With Weights: <strong>${animalsWithWeights}</strong>`;
+            }
+        },
+
+        toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode') ? 'enabled' : 'disabled');
+        },
+
+        setInitialTheme() {
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                document.body.classList.add('dark-mode');
+            }
+        },
+
+        toggleFileView() {
+            const el = this.elements;
+            if (!el.fileView || !el.cowInfo || !el.toggleFileViewBtn) return; // Defensive check
+            const isFileViewVisible = !el.fileView.classList.contains('hidden');
+
+            if (isFileViewVisible) {
+                // If currently visible, hide it.
+                el.fileView.classList.add('hidden');
+                el.cowInfo.classList.add('hidden'); // Ensure cow info is hidden too
+                el.toggleFileViewBtn.textContent = '📁 Saved';
+            } else {
+                // If currently hidden, show it.
+                el.fileView.classList.remove('hidden');
+                el.cowInfo.classList.add('hidden'); // Hide cow info if it was visible
+                el.toggleFileViewBtn.textContent = '⬅️ Back';
+                this.renderFileTable();
+                this.stopQrScanner(); // Stop QR scanner if it's running
+            }
+        },
+
+        async deleteSelected() {
+            const checkboxes = document.querySelectorAll('#fileTableBody .rowCheckbox:checked');
+            if (checkboxes.length === 0) {
+                return await customAlert("No animals selected for deletion.");
+            }
+            const confirmed = await customConfirm(`Are you sure you want to delete ${checkboxes.length} selected animals? This action cannot be undone.`);
+            if (!confirmed) {
+                return;
+            }
+            checkboxes.forEach(checkbox => {
+                const tag = checkbox.dataset.tag;
+                delete this.state.cattle[tag];
+            });
+            this.saveData();
+            this.renderFileTable();
+            if (this.elements.toggleAllCheckbox) { // Defensive check
+                this.elements.toggleAllCheckbox.checked = false; // Uncheck "select all"
+            }
+            if (this.elements.cowInfo) { // Defensive check
+                this.elements.cowInfo.classList.add('hidden'); // Hide info panel if selected cow was deleted
+            }
+            showToast(`${checkboxes.length} animal(s) deleted.`);
+        },
+
+        async confirmDeleteAll() {
+            if (Object.keys(this.state.cattle).length === 0) {
+                return await customAlert("No animals to delete.");
+            }
+            const confirmed = await customConfirm("Are you absolutely sure you want to delete ALL animal data? This action cannot be undone.");
+            if (confirmed) {
+                this.state.cattle = {};
+                this.saveData();
+                this.renderFileTable();
+                if (this.elements.toggleAllCheckbox) { // Defensive check
+                    this.elements.toggleAllCheckbox.checked = false;
+                }
+                if (this.elements.cowInfo) { // Defensive check
+                    this.elements.cowInfo.classList.add('hidden');
+                }
+                showToast('All animal data deleted!');
+            }
+        },
+
+        toggleAllCheckboxes(checked) {
+            document.querySelectorAll('#fileTableBody .rowCheckbox').forEach(checkbox => {
+                checkbox.checked = checked;
+            });
+        },
+
+        openQrModal() {
+            const el = this.elements;
+            if (!el.qrModal) return; // Defensive check
+            el.qrModal.classList.add('is-active');
+            trapFocus(el.qrModal); // Trap focus
+            this.stopQrScanner(); // Stop QR scanner if it's running
+            if (el.qrTagInput) { // Defensive check
+                el.qrTagInput.focus(); // Focus input when modal opens
+            }
+        },
+
+        closeQrModal() {
+            const modal = this.elements.qrModal;
+            if (!modal) return; // Defensive check
+            modal.classList.remove('is-active');
+            if (this.elements.qrOutput) { // Defensive check
+                this.elements.qrOutput.innerHTML = ''; // Clear QR output
+            }
+            modal.addEventListener('transitionend', function handler() {
+                modal.removeEventListener('transitionend', handler);
+                if (lastFocusedElement) {
+                    lastFocusedElement.focus();
+                    lastFocusedElement = null;
+                }
+            });
+        },
+
+        async generateQrInModal() {
+            const el = this.elements;
+            if (!el.qrTagInput || !el.qrOutput) return; // Defensive check
+            const tag = el.qrTagInput.value.trim();
+            if (!tag) return await customAlert("Please enter a tag number to generate a QR code.");
+
+            el.qrOutput.innerHTML = ''; // Clear previous QR
+            // QRCode.js creates a canvas or table element.
+            // It requires an an element to append to, not just innerHTML.
+            // Ensure QR code colors adapt to dark/light mode
+            const qrDarkColor = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
+            const qrLightColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim();
+
+            const qrcode = new QRCode(el.qrOutput, {
+                text: tag,
+                width: 128,
+                height: 128,
+                colorDark : qrDarkColor,
+                colorLight : qrLightColor,
+                correctLevel : QRCode.CorrectLevel.H
+            });
+            showToast('QR code generated!');
+        },
+
+        async downloadQr() {
+            const el = this.elements;
+            if (!el.qrOutput || !el.qrTagInput) return; // Defensive check
+            const qrCanvas = el.qrOutput.querySelector('canvas');
+            if (!qrCanvas) return await customAlert("Generate a QR code first.");
+
+            const tag = el.qrTagInput.value.trim() || 'qr_code';
+            const a = document.createElement('a');
+            a.href = qrCanvas.toDataURL("image/png");
+            a.download = `QR_Tag_${tag}.png`;
+            a.click();
+            showToast('QR code downloaded!');
+        },
+
+        // --- Batch Weight Entry Functions ---
+        openBatchWeightModal() {
+            const el = this.elements;
+            if (!el.batchWeightModal || !el.batchWeightTableBody || !el.saveBatchWeightsBtn) return; // Defensive check
+            lastFocusedElement = document.activeElement; // Store current focus
+            const selectedTags = Array.from(document.querySelectorAll('#fileTableBody .rowCheckbox:checked'))
+                                    .map(cb => cb.dataset.tag);
+
+            let animalsToProcess = [];
+            if (selectedTags.length > 0) {
+                animalsToProcess = selectedTags.map(tag => this.state.cattle[tag]).filter(Boolean);
+            } else {
+                animalsToProcess = Object.values(this.state.cattle);
+            }
+
+            el.batchWeightTableBody.innerHTML = ''; // Clear previous rows
+            const today = new Date().toISOString().slice(0, 10); //YYYY-MM-DD
+
+            if (animalsToProcess.length === 0) {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `<td colspan="3" style="text-align: center; font-style: italic;">No animals selected or found.</td>`;
+                el.batchWeightTableBody.appendChild(tr);
+                el.saveBatchWeightsBtn.disabled = true; // Disable save if no animals
+            } else {
+                animalsToProcess.forEach(cow => {
+                    const tr = document.createElement('tr');
+                    tr.dataset.tag = cow.tag;
+                    tr.innerHTML = `
+                        <td>${cow.animalEmoji || ''} ${cow.tag} (${cow.animal || 'N/A'})</td>
+                        <td>
+                            <input type="number" step="0.1" class="batchWeightInput" data-tag="${cow.tag}" placeholder="Weight" style="width: 80px;" aria-label="Weight for ${cow.tag}">
+                            <span class="validation-message" id="batchWeightMsg-${cow.tag}"></span>
+                        </td>
+                        <td>
+                            <input type="date" class="batchDateInput" value="${today}" data-tag="${cow.tag}" style="width: 120px;" aria-label="Date for ${cow.tag}">
+                            <span class="validation-message" id="batchDateMsg-${cow.tag}"></span>
+                        </td>
+                    `;
+                    el.batchWeightTableBody.appendChild(tr);
+
+                    // Add input event listeners for clearing validation feedback
+                    const weightInput = tr.querySelector('.batchWeightInput');
+                    const dateInput = tr.querySelector('.batchDateInput');
+                    const weightMsg = document.getElementById(`batchWeightMsg-${cow.tag}`);
+                    const dateMsg = document.getElementById(`batchDateMsg-${cow.tag}`);
+
+                    if (weightInput && weightMsg) { // Defensive check
+                        weightInput.addEventListener('input', (e) => {
+                            this.clearValidationFeedback(e.target, weightMsg);
+                        });
+                    }
+                    if (dateInput && dateMsg) { // Defensive check
+                        dateInput.addEventListener('input', (e) => {
+                            this.clearValidationFeedback(e.target, dateMsg);
+                        });
+                    }
+                });
+                el.saveBatchWeightsBtn.disabled = false; // Enable save if there are animals
+            }
+
+            el.batchWeightModal.classList.add('is-active');
+            trapFocus(el.batchWeightModal); // Trap focus in the modal
+            if (el.batchWeightTableBody.querySelector('.batchWeightInput')) { // Defensive check
+                el.batchWeightTableBody.querySelector('.batchWeightInput').focus(); // Focus first weight input
+            }
+        },
+
+        closeBatchWeightModal() {
+            const modal = this.elements.batchWeightModal;
+            if (!modal) return; // Defensive check
+            modal.classList.remove('is-active');
+            this.renderFileTable(); // Refresh the main file table
+            modal.addEventListener('transitionend', function handler() {
+                modal.removeEventListener('transitionend', handler);
+                if (lastFocusedElement) {
+                    lastFocusedElement.focus();
+                    lastFocusedElement = null;
+                }
+            });
+        },
+
+        async saveBatchWeights() {
+            const el = this.elements;
+            if (!el.batchWeightTableBody || !el.saveBatchWeightsBtn) return; // Defensive check
+            const rows = el.batchWeightTableBody.querySelectorAll('tr');
+            let successCount = 0;
+            let errorMessages = [];
+            let hasValidationError = false;
+
+            for (const row of rows) {
+                const tag = row.dataset.tag;
+                const weightInput = row.querySelector('.batchWeightInput');
+                const dateInput = row.querySelector('.batchDateInput');
+                const weightMsg = document.getElementById(`batchWeightMsg-${tag}`);
+                const dateMsg = document.getElementById(`batchDateMsg-${tag}`);
+
+                // Clear previous validation feedback for this row
+                if (weightInput && weightMsg) { // Defensive check
+                    this.clearValidationFeedback(weightInput, weightMsg);
+                }
+                if (dateInput && dateMsg) { // Defensive check
+                    this.clearValidationFeedback(dateInput, dateMsg);
+                }
+                
+
+                const weight = parseFloat(weightInput ? weightInput.value : NaN); // Defensive check
+                const date = dateInput ? dateInput.value : ""; // Defensive check
+
+                let rowIsValid = true;
+
+                if (isNaN(weight) || weight <= 0) {
+                    if (weightInput && weightMsg) { // Defensive check
+                        this.showValidationFeedback(weightInput, weightMsg, "Invalid weight.");
+                    }
+                    rowIsValid = false;
+                    hasValidationError = true;
+                }
+                if (!date) {
+                    if (dateInput && dateMsg) { // Defensive check
+                        this.showValidationFeedback(dateInput, dateMsg, "Date required.");
+                    }
+                    rowIsValid = false;
+                    hasValidationError = true;
+                }
+
+                if (!rowIsValid) {
+                    errorMessages.push(`Skipping entry for tag ${tag}: Invalid weight or date.`);
+                    continue;
+                }
+
+                const cow = this.state.cattle[tag];
+                if (!cow) {
+                    errorMessages.push(`Skipping entry for tag ${tag}: Animal not found.`);
+                    continue;
+                }
+
+                const newWeightDate = new Date(date);
+                if (cow.weights && cow.weights.length > 0) {
+                    const lastWeightDate = new Date(cow.weights[cow.weights.length - 1].date);
+                    if (newWeightDate < lastWeightDate) {
+                        if (dateInput && dateMsg) { // Defensive check
+                            this.showValidationFeedback(dateInput, dateMsg, `Date cannot be earlier than ${cow.weights[cow.weights.length - 1].date}.`);
+                        }
+                        errorMessages.push(`Skipping entry for tag ${tag}: New weight date (${date}) cannot be earlier than the last recorded date (${cow.weights[cow.weights.length - 1].date}).`);
+                        rowIsValid = false;
+                        hasValidationError = true;
+                        continue;
+                    }
+                }
+
+                // If validation passes for this row, add the weight
+                if (rowIsValid) {
+                    cow.weights.push({ weight, date });
+                    cow.weights.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    successCount++;
+                }
+            }
+
+            if (hasValidationError) {
+                await customAlert("Some entries had validation errors. Please correct them and try again.");
+                // Do not close modal if there are validation errors, allowing user to correct
+                return;
+            }
+
+            this.saveData(); // Save all changes at once
+            this.closeBatchWeightModal();
+            this.showCowInfo(this.state.selectedTag); // Refresh current animal's info if selected
+
+            let finalMessage = `${successCount} weight entries saved successfully.`;
+            if (errorMessages.length > 0) {
+                finalMessage += `\n\nErrors encountered:\n${errorMessages.join('\n')}`;
+            }
+            await customAlert(finalMessage);
+            showToast("Batch weights saved!");
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        HerdTrackerApp.init();
+    });
+</script>
+</body>
+</html>
