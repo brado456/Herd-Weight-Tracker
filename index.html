@@ -7,14 +7,8 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="manifest" href="manifest.json" />
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js');
-    });
-  }
-</script>
+    <!-- Removed service worker manifest link and registration script to prevent URL protocol errors. -->
+    <!-- <link rel="manifest" href="manifest.json" /> -->
 
     <!-- Ensure these CDN links are correct and accessible -->
     <script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
@@ -660,6 +654,10 @@
 
         </section>
     </main>
+    <div style="width: 100%; text-align: center; margin-top: 20px;">
+        <p>This application is designed to help you track your herd's weight over time. You can add new animals, record their weights, and view insights.</p>
+        <p>All data is saved locally in your browser and can be exported for backup.</p>
+    </div>
 </div>
 
 <!-- Toast Notification Container -->
@@ -1561,7 +1559,7 @@
             allAnimals.forEach(({name, emoji}) => {
                 const opt = document.createElement("option");
                 opt.value = name;
-                opt.textContent = `${emoji || '🆕'} ${name}`;
+                opt.textContent = `${emoji || '�'} ${name}`;
                 el.animalDropdown.appendChild(opt);
             });
         },
@@ -2461,14 +2459,6 @@
     document.addEventListener('DOMContentLoaded', () => {
         HerdTrackerApp.init();
     });
-
-<script>
-  if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-          navigator.serviceWorker.register('service-worker.js');
-      });
-  }
-</script>
 
 </script>
 </body>
