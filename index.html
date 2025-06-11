@@ -1168,6 +1168,12 @@
             this.updateStatsBar();
             // Set initial date for weight input to today
             this.elements.weightDateInput.valueAsDate = new Date();
+
+            // Explicit check for critical elements after caching
+            if (!this.elements.tagInputValidationMsg) {
+                console.error("CRITICAL ERROR: 'tagInputValidationMsg' element is still missing after DOM caching. Please verify your HTML structure.");
+                showToast("Application error: Essential HTML element missing. Please check your HTML for 'tagInputValidationMsg'.", 6000);
+            }
         },
 
         cacheDOMElements() {
@@ -1184,13 +1190,22 @@
                 'getWeightInsightBtn', 'insightModal', 'closeInsightModalBtn', 'insightContent', 'loadingModal', 'loadingMessage',
                 'customPromptModal', 'promptMessage', 'promptInput', 'promptOkBtn', 'promptCancelBtn',
                 'includeSex', 'sexDropdownBox', 'sexDropdown', 'dobInput', 'infoDob', 'infoAge',
-                'lastWeightDate', 'weightChange', 'notesInput', 'saveNotesBtn' // New elements
+                'lastWeightDate', 'weightChange', 'notesInput', 'saveNotesBtn',
+                'tagInputValidationMsg', 'weightInputValidationMsg', 'weightDateInputValidationMsg' // Validation message elements
             ];
             ids.forEach(id => {
                 const camelCaseId = id.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
                 this.elements[camelCaseId] = document.getElementById(id);
             });
             this.elements.sortableHeaders = document.querySelectorAll('#fileView th[data-sort-by]');
+
+            // Add diagnostic logs for essential elements
+            console.log("DOM element check after caching:");
+            console.log("tagInput:", this.elements.tagInput);
+            console.log("tagInputValidationMsg:", this.elements.tagInputValidationMsg);
+            console.log("animalDropdown:", this.elements.animalDropdown);
+            console.log("cowInfo:", this.elements.cowInfo);
+            console.log("createNewCowBtn:", this.elements.createNewCowBtn);
         },
 
         loadData() {
@@ -1221,9 +1236,8 @@
             });
             if (el.addBreedBtn) el.addBreedBtn.addEventListener('click', () => this.addCustomBreed());
             if (el.tagInput) el.tagInput.addEventListener('input', () => {
-                if (el.tagInputValidationMsg) { // Defensive check
-                    this.clearValidationFeedback(el.tagInput, el.tagInputValidationMsg);
-                }
+                // Defensive check for message element here
+                this.clearValidationFeedback(el.tagInput, el.tagInputValidationMsg);
                 this.showSuggestions();
             });
             if (el.tagInput) el.tagInput.addEventListener('focus', () => this.showSuggestions());
@@ -1242,14 +1256,10 @@
 
             // Cow Info section
             if (el.weightInput) el.weightInput.addEventListener('input', () => {
-                if (el.weightInputValidationMsg) { // Defensive check
-                    this.clearValidationFeedback(el.weightInput, el.weightInputValidationMsg);
-                }
+                this.clearValidationFeedback(el.weightInput, el.weightInputValidationMsg);
             });
             if (el.weightDateInput) el.weightDateInput.addEventListener('input', () => {
-                if (el.weightDateInputValidationMsg) { // Defensive check
-                    this.clearValidationFeedback(el.weightDateInput, el.weightDateInputValidationMsg);
-                }
+                this.clearValidationFeedback(el.weightDateInput, el.weightDateInputValidationMsg);
             });
             if (el.addWeightBtn) el.addWeightBtn.addEventListener('click', () => this.addWeight());
             if (el.getWeightInsightBtn) el.getWeightInsightBtn.addEventListener('click', () => this.getWeightInsight());
@@ -1332,15 +1342,19 @@
 
         // --- Validation Feedback Helpers ---
         showValidationFeedback(inputElement, messageElement, message) {
-            inputElement.classList.add('is-invalid');
-            messageElement.textContent = message;
-            messageElement.style.display = 'block';
+            if (inputElement) inputElement.classList.add('is-invalid');
+            if (messageElement) { // Defensive check
+                messageElement.textContent = message;
+                messageElement.style.display = 'block';
+            }
         },
 
         clearValidationFeedback(inputElement, messageElement) {
-            inputElement.classList.remove('is-invalid');
-            messageElement.textContent = '';
-            messageElement.style.display = 'none';
+            if (inputElement) inputElement.classList.remove('is-invalid');
+            if (messageElement) { // Defensive check
+                messageElement.textContent = '';
+                messageElement.style.display = 'none';
+            }
         },
 
         // --- Table Rendering and Sorting ---
@@ -1673,18 +1687,40 @@
 
         async createNewCow() {
             const el = this.elements;
-            // Removed !el.weightInput from this check, as it was preventing new animal creation
-            if (!el.tagInput || !el.tagInputValidationMsg || !el.animalDropdown || !el.cowInfo) return; 
+            // Explicitly check essential elements for this function
+            if (!el.tagInput) {
+                console.error("Missing essential DOM element: tagInput");
+                showToast("Application error: Cannot add animal. Missing Tag Input.", 5000);
+                return;
+            }
+            if (!el.tagInputValidationMsg) {
+                console.error("Missing essential DOM element: tagInputValidationMsg");
+                showToast("Application error: Cannot add animal. Missing Tag Validation Message element. Please check HTML.", 5000);
+                return;
+            }
+            if (!el.animalDropdown) {
+                console.error("Missing essential DOM element: animalDropdown");
+                showToast("Application error: Cannot add animal. Missing Animal Dropdown.", 5000);
+                return;
+            }
+            if (!el.cowInfo) {
+                console.error("Missing essential DOM element: cowInfo");
+                showToast("Application error: Cannot add animal. Missing Animal Info Section.", 5000);
+                return;
+            }
+
             const tag = el.tagInput.value.trim().toUpperCase();
-            const dob = el.dobInput ? el.dobInput.value : ""; // Get DOB, defensive check
+            const dob = el.dobInput ? el.dobInput.value : "";
             this.clearValidationFeedback(el.tagInput, el.tagInputValidationMsg);
 
             if (!tag) {
                 this.showValidationFeedback(el.tagInput, el.tagInputValidationMsg, "Please enter a tag number.");
+                showToast("Tag number is required.", 3000); // Added toast for empty tag
                 return;
             }
             if (this.state.cattle[tag]) {
                 this.showValidationFeedback(el.tagInput, el.tagInputValidationMsg, "That tag already exists!");
+                showToast("This animal tag already exists.", 3000); // Added toast for duplicate tag
                 return;
             }
 
@@ -1697,26 +1733,25 @@
                 animal: animalName,
                 animalEmoji: animalObj.emoji || '🆕',
                 breed: el.includeBreed.checked ? el.breedDropdown.value : "",
-                sex: el.includeSex.checked ? el.sexDropdown.value : "Unknown", // Store sex
-                dob: dob, // Store DOB
+                sex: el.includeSex.checked ? el.sexDropdown.value : "Unknown",
+                dob: dob,
                 weights: [],
-                notes: "", // Initialize notes field
+                notes: "",
                 created: Date.now()
             };
             this.saveData();
-            this.showCowInfo(tag);
+            this.showCowInfo(tag); // This will make the cowInfo section visible
             el.tagInput.value = "";
-            if (el.dobInput) { // Clear DOB input
+            if (el.dobInput) {
                 el.dobInput.value = "";
             }
-            if (el.suggestions) { // Defensive check
+            if (el.suggestions) {
                 el.suggestions.innerHTML = "";
                 el.suggestions.style.display = 'none';
             }
             showToast("Animal added successfully!");
             el.cowInfo.scrollIntoView({ behavior: 'smooth' });
-            // Ensure weightInput exists before focusing on it
-            if (el.weightInput) {
+            if (el.weightInput) { // Ensure weightInput exists before focusing on it
                 el.weightInput.focus();
             }
         },
@@ -1842,12 +1877,8 @@
             this.drawChart(cow.weights);
 
             // Clear any previous validation messages when switching cows
-            if (el.weightInputValidationMsg) { // Defensive check
-                this.clearValidationFeedback(el.weightInput, el.weightInputValidationMsg);
-            }
-            if (el.weightDateInputValidationMsg) { // Defensive check
-                this.clearValidationFeedback(el.weightDateInput, el.weightDateInputValidationMsg);
-            }
+            this.clearValidationFeedback(el.weightInput, el.weightInputValidationMsg);
+            this.clearValidationFeedback(el.weightDateInput, el.weightDateInputValidationMsg);
         },
 
         saveNotes() {
@@ -2331,4 +2362,129 @@
 
                     if (weightInput && weightMsg) { // Defensive check
                         weightInput.addEventListener('input', (e) => {
-                            this.clearValidationFeedba
+                            this.clearValidationFeedback(e.target, weightMsg);
+                        });
+                    }
+                    if (dateInput && dateMsg) { // Defensive check
+                        dateInput.addEventListener('input', (e) => {
+                            this.clearValidationFeedback(e.target, dateMsg);
+                        });
+                    }
+                });
+                el.saveBatchWeightsBtn.disabled = false; // Enable save if there are animals
+            }
+
+            el.batchWeightModal.classList.add('is-active');
+            trapFocus(el.batchWeightModal); // Trap focus in the modal
+            if (el.batchWeightTableBody.querySelector('.batchWeightInput')) { // Defensive check
+                el.batchWeightTableBody.querySelector('.batchWeightInput').focus(); // Focus first weight input
+            }
+        },
+
+        closeBatchWeightModal() {
+            const modal = this.elements.batchWeightModal;
+            if (!modal) return; // Defensive check
+            modal.classList.remove('is-active');
+            this.renderFileTable(); // Refresh the main file table
+            modal.addEventListener('transitionend', function handler() {
+                modal.removeEventListener('transitionend', handler);
+                if (lastFocusedElement) {
+                    lastFocusedElement.focus();
+                    lastFocusedElement = null;
+                }
+            });
+        },
+
+        async saveBatchWeights() {
+            const el = this.elements;
+            if (!el.batchWeightTableBody || !el.saveBatchWeightsBtn) return; // Defensive check
+            const rows = el.batchWeightTableBody.querySelectorAll('tr');
+            let successCount = 0;
+            let errorMessages = [];
+            let hasValidationError = false;
+
+            for (const row of rows) {
+                const tag = row.dataset.tag;
+                const weightInput = row.querySelector('.batchWeightInput');
+                const dateInput = row.querySelector('.batchDateInput');
+                const weightMsg = document.getElementById(`batchWeightMsg-${tag}`);
+                const dateMsg = document.getElementById(`batchDateMsg-${tag}`);
+
+                // Clear previous validation feedback for this row
+                this.clearValidationFeedback(weightInput, weightMsg);
+                this.clearValidationFeedback(dateInput, dateMsg);
+                
+
+                const weight = parseFloat(weightInput ? weightInput.value : NaN); // Defensive check
+                const date = dateInput ? dateInput.value : ""; // Defensive check
+
+                let rowIsValid = true;
+
+                if (isNaN(weight) || weight <= 0) {
+                    this.showValidationFeedback(weightInput, weightMsg, "Invalid weight.");
+                    rowIsValid = false;
+                    hasValidationError = true;
+                }
+                if (!date) {
+                    this.showValidationFeedback(dateInput, dateMsg, "Date required.");
+                    rowIsValid = false;
+                    hasValidationError = true;
+                }
+
+                if (!rowIsValid) {
+                    errorMessages.push(`Skipping entry for tag ${tag}: Invalid weight or date.`);
+                    continue;
+                }
+
+                const cow = this.state.cattle[tag];
+                if (!cow) {
+                    errorMessages.push(`Skipping entry for tag ${tag}: Animal not found.`);
+                    continue;
+                }
+
+                const newWeightDate = new Date(date);
+                if (cow.weights && cow.weights.length > 0) {
+                    const lastWeightDate = new Date(cow.weights[cow.weights.length - 1].date);
+                    if (newWeightDate < lastWeightDate) {
+                        this.showValidationFeedback(dateInput, dateMsg, `Date cannot be earlier than ${cow.weights[cow.weights.length - 1].date}.`);
+                        errorMessages.push(`Skipping entry for tag ${tag}: New weight date (${date}) cannot be earlier than the last recorded date (${cow.weights[cow.weights.length - 1].date}).`);
+                        rowIsValid = false;
+                        hasValidationError = true;
+                        continue;
+                    }
+                }
+
+                // If validation passes for this row, add the weight
+                if (rowIsValid) {
+                    cow.weights.push({ weight, date });
+                    cow.weights.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    successCount++;
+                }
+            }
+
+            if (hasValidationError) {
+                await customAlert("Some entries had validation errors. Please correct them and try again.");
+                // Do not close modal if there are validation errors, allowing user to correct
+                return;
+            }
+
+            this.saveData(); // Save all changes at once
+            this.closeBatchWeightModal();
+            this.showCowInfo(this.state.selectedTag); // Refresh current animal's info if selected
+
+            let finalMessage = `${successCount} weight entries saved successfully.`;
+            if (errorMessages.length > 0) {
+                finalMessage += `\n\nErrors encountered:\n${errorMessages.join('\n')}`;
+            }
+            await customAlert(finalMessage);
+            showToast("Batch weights saved!");
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        HerdTrackerApp.init();
+    });
+
+</script>
+</body>
+</html>
