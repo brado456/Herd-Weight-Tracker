@@ -1673,7 +1673,8 @@
 
         async createNewCow() {
             const el = this.elements;
-            if (!el.tagInput || !el.tagInputValidationMsg || !el.animalDropdown || !el.cowInfo || !el.weightInput) return; // Defensive check
+            // Removed !el.weightInput from this check, as it was preventing new animal creation
+            if (!el.tagInput || !el.tagInputValidationMsg || !el.animalDropdown || !el.cowInfo) return; 
             const tag = el.tagInput.value.trim().toUpperCase();
             const dob = el.dobInput ? el.dobInput.value : ""; // Get DOB, defensive check
             this.clearValidationFeedback(el.tagInput, el.tagInputValidationMsg);
@@ -1714,7 +1715,10 @@
             }
             showToast("Animal added successfully!");
             el.cowInfo.scrollIntoView({ behavior: 'smooth' });
-            el.weightInput.focus();
+            // Ensure weightInput exists before focusing on it
+            if (el.weightInput) {
+                el.weightInput.focus();
+            }
         },
 
         calculateAge(dobString) {
@@ -2327,139 +2331,4 @@
 
                     if (weightInput && weightMsg) { // Defensive check
                         weightInput.addEventListener('input', (e) => {
-                            this.clearValidationFeedback(e.target, weightMsg);
-                        });
-                    }
-                    if (dateInput && dateMsg) { // Defensive check
-                        dateInput.addEventListener('input', (e) => {
-                            this.clearValidationFeedback(e.target, dateMsg);
-                        });
-                    }
-                });
-                el.saveBatchWeightsBtn.disabled = false; // Enable save if there are animals
-            }
-
-            el.batchWeightModal.classList.add('is-active');
-            trapFocus(el.batchWeightModal); // Trap focus in the modal
-            if (el.batchWeightTableBody.querySelector('.batchWeightInput')) { // Defensive check
-                el.batchWeightTableBody.querySelector('.batchWeightInput').focus(); // Focus first weight input
-            }
-        },
-
-        closeBatchWeightModal() {
-            const modal = this.elements.batchWeightModal;
-            if (!modal) return; // Defensive check
-            modal.classList.remove('is-active');
-            this.renderFileTable(); // Refresh the main file table
-            modal.addEventListener('transitionend', function handler() {
-                modal.removeEventListener('transitionend', handler);
-                if (lastFocusedElement) {
-                    lastFocusedElement.focus();
-                    lastFocusedElement = null;
-                }
-            });
-        },
-
-        async saveBatchWeights() {
-            const el = this.elements;
-            if (!el.batchWeightTableBody || !el.saveBatchWeightsBtn) return; // Defensive check
-            const rows = el.batchWeightTableBody.querySelectorAll('tr');
-            let successCount = 0;
-            let errorMessages = [];
-            let hasValidationError = false;
-
-            for (const row of rows) {
-                const tag = row.dataset.tag;
-                const weightInput = row.querySelector('.batchWeightInput');
-                const dateInput = row.querySelector('.batchDateInput');
-                const weightMsg = document.getElementById(`batchWeightMsg-${tag}`);
-                const dateMsg = document.getElementById(`batchDateMsg-${tag}`);
-
-                // Clear previous validation feedback for this row
-                if (weightInput && weightMsg) { // Defensive check
-                    this.clearValidationFeedback(weightInput, weightMsg);
-                }
-                if (dateInput && dateMsg) { // Defensive check
-                    this.clearValidationFeedback(dateInput, dateMsg);
-                }
-                
-
-                const weight = parseFloat(weightInput ? weightInput.value : NaN); // Defensive check
-                const date = dateInput ? dateInput.value : ""; // Defensive check
-
-                let rowIsValid = true;
-
-                if (isNaN(weight) || weight <= 0) {
-                    if (weightInput && weightMsg) { // Defensive check
-                        this.showValidationFeedback(weightInput, weightMsg, "Invalid weight.");
-                    }
-                    rowIsValid = false;
-                    hasValidationError = true;
-                }
-                if (!date) {
-                    if (dateInput && dateMsg) { // Defensive check
-                        this.showValidationFeedback(dateInput, dateMsg, "Date required.");
-                    }
-                    rowIsValid = false;
-                    hasValidationError = true;
-                }
-
-                if (!rowIsValid) {
-                    errorMessages.push(`Skipping entry for tag ${tag}: Invalid weight or date.`);
-                    continue;
-                }
-
-                const cow = this.state.cattle[tag];
-                if (!cow) {
-                    errorMessages.push(`Skipping entry for tag ${tag}: Animal not found.`);
-                    continue;
-                }
-
-                const newWeightDate = new Date(date);
-                if (cow.weights && cow.weights.length > 0) {
-                    const lastWeightDate = new Date(cow.weights[cow.weights.length - 1].date);
-                    if (newWeightDate < lastWeightDate) {
-                        if (dateInput && dateMsg) { // Defensive check
-                            this.showValidationFeedback(dateInput, dateMsg, `Date cannot be earlier than ${cow.weights[cow.weights.length - 1].date}.`);
-                        }
-                        errorMessages.push(`Skipping entry for tag ${tag}: New weight date (${date}) cannot be earlier than the last recorded date (${cow.weights[cow.weights.length - 1].date}).`);
-                        rowIsValid = false;
-                        hasValidationError = true;
-                        continue;
-                    }
-                }
-
-                // If validation passes for this row, add the weight
-                if (rowIsValid) {
-                    cow.weights.push({ weight, date });
-                    cow.weights.sort((a, b) => new Date(a.date) - new Date(b.date));
-                    successCount++;
-                }
-            }
-
-            if (hasValidationError) {
-                await customAlert("Some entries had validation errors. Please correct them and try again.");
-                // Do not close modal if there are validation errors, allowing user to correct
-                return;
-            }
-
-            this.saveData(); // Save all changes at once
-            this.closeBatchWeightModal();
-            this.showCowInfo(this.state.selectedTag); // Refresh current animal's info if selected
-
-            let finalMessage = `${successCount} weight entries saved successfully.`;
-            if (errorMessages.length > 0) {
-                finalMessage += `\n\nErrors encountered:\n${errorMessages.join('\n')}`;
-            }
-            await customAlert(finalMessage);
-            showToast("Batch weights saved!");
-        }
-    };
-
-    document.addEventListener('DOMContentLoaded', () => {
-        HerdTrackerApp.init();
-    });
-
-</script>
-</body>
-</html>
+                            this.clearValidationFeedba
